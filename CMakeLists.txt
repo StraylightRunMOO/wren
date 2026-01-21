@@ -158,6 +158,9 @@ if(BUILD_TESTS)
     add_test(NAME wren_test COMMAND wren_test)
 endif()
 
+# Tools (REPL, etc.)
+add_subdirectory(tools)
+
 # Installation rules
 include(GNUInstallDirs)
 
