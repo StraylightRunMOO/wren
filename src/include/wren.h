@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 // The Wren semantic version number components.
 #define WREN_VERSION_MAJOR 0
@@ -65,6 +66,15 @@ typedef void (*WrenForeignMethodFn)(WrenVM* vm);
 // and should not interact with it since it's in the middle of a garbage
 // collection.
 typedef void (*WrenFinalizerFn)(void* data);
+
+// Called during compilation when an Object Number (#123) is encountered.
+// [value] is the integer that follows the hash symbol.
+// The callback should create the desired value and place it in slot 0.
+// The value in slot 0 will be stored in the constant pool and loaded
+// whenever this literal is evaluated.
+//
+// If this callback is NULL, Object Numbers will cause a compilation error.
+typedef void (*WrenObjectNumberFn)(WrenVM* vm, int64_t value);
 
 // Gives the host a chance to canonicalize the imported module name,
 // potentially taking into account the (previously resolved) name of the module
@@ -231,6 +241,15 @@ typedef struct
   // number, and an error message. If this is `NULL`, Wren doesn't report any
   // errors.
   WrenErrorFn errorFn;
+
+  // The callback Wren uses to resolve Object Numbers.
+  //
+  // When an Object Number like #123 is encountered during compilation,
+  // this function is called with the integer value. It should return
+  // a Wren Value (typically an object instance).
+  //
+  // If this is NULL, Object Numbers will cause a compilation error.
+  WrenObjectNumberFn objectNumberFn;
 
   // The number of bytes Wren will allocate before triggering the first garbage
   // collection.

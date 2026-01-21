@@ -15,6 +15,7 @@
 #include "get_variable.h"
 #include "foreign_class.h"
 #include "handle.h"
+#include "object_number.h"
 #include "lists.h"
 #include "maps.h"
 #include "new_vm.h"

@@ -50,6 +50,7 @@ void wrenInitConfiguration(WrenConfiguration* config)
   config->bindForeignClassFn = NULL;
   config->writeFn = NULL;
   config->errorFn = NULL;
+  config->objectNumberFn = NULL;
   config->initialHeapSize = 1024 * 1024 * 10;
   config->minHeapSize = 1024 * 1024;
   config->heapGrowthPercent = 50;

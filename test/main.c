@@ -1,5 +1,6 @@
 #include "./test.h"
 #include "./api/api_tests.h"
+#include "./api/object_number.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -24,6 +25,7 @@ static WrenVM* initVM(bool isAPITest)
   if(isAPITest) {
     config.bindForeignClassFn = APITest_bindForeignClass;
     config.bindForeignMethodFn = APITest_bindForeignMethod;
+    config.objectNumberFn = objectNumberGetCallback();
   }
 
   // Since we're running in a standalone process, be generous with memory.

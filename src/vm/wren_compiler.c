@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "wren_common.h"
@@ -133,6 +134,8 @@ typedef enum
   TOKEN_INTERPOLATION,
 
   TOKEN_LINE,
+
+  TOKEN_OBJECT_NUMBER,  // Object Number like #123
 
   TOKEN_ERROR,
   TOKEN_EOF
@@ -781,6 +784,32 @@ static void readHexNumber(Parser* parser)
   makeNumber(parser, true);
 }
 
+// Finishes lexing an Object Number literal.
+static void readObjectNumber(Parser* parser)
+{
+  // Skip past the '#'
+  nextChar(parser);
+
+  // Read all decimal digits
+  while (isDigit(peekChar(parser))) nextChar(parser);
+
+  // Parse the integer value
+  errno = 0;
+  int64_t value = strtoll(parser->tokenStart + 1, NULL, 10);
+
+  if (errno == ERANGE)
+  {
+    lexError(parser, "Object Number value is too large.");
+    parser->next.value = NUM_VAL(0);
+  }
+  else
+  {
+    parser->next.value = NUM_VAL((double)value);
+  }
+
+  makeToken(parser, TOKEN_OBJECT_NUMBER);
+}
+
 // Finishes lexing a number literal.
 static void readNumber(Parser* parser)
 {
@@ -1102,8 +1131,17 @@ static void nextToken(Parser* parser)
           skipLineComment(parser);
           break;
         }
-        // Otherwise we treat it as a token
-        makeToken(parser, TOKEN_HASH); 
+
+        // Distinguish Object Numbers (#123) from attributes (#name)
+        if (isDigit(peekChar(parser)))
+        {
+          readObjectNumber(parser);
+        }
+        else
+        {
+          // Attribute usage
+          makeToken(parser, TOKEN_HASH);
+        }
         return;
       }
       case '^': makeToken(parser, TOKEN_CARET); return;
@@ -2429,6 +2467,31 @@ static void literal(Compiler* compiler, bool canAssign)
   emitConstant(compiler, compiler->parser->previous.value);
 }
 
+// Compiles an Object Number like #123.
+static void objectNumber(Compiler* compiler, bool canAssign)
+{
+  // Check if callback is configured
+  if (compiler->parser->vm->config.objectNumberFn == NULL)
+  {
+    error(compiler, "Object Numbers require objectNumberFn callback to be set.");
+    return;
+  }
+
+  // Extract integer value from token
+  int64_t intValue = (int64_t)AS_NUM(compiler->parser->previous.value);
+
+  // Ensure there's a slot for the callback to use
+  wrenEnsureSlots(compiler->parser->vm, 1);
+
+  // Call the user's callback - it will place the result in slot 0
+  compiler->parser->vm->config.objectNumberFn(
+      compiler->parser->vm, intValue);
+
+  // Get the result from slot 0 and emit it as a constant
+  Value result = compiler->parser->vm->apiStack[0];
+  emitConstant(compiler, result);
+}
+
 // A string literal that contains interpolated expressions.
 //
 // Interpolation is syntactic sugar for calling ".join()" on a list. So the
@@ -2816,6 +2879,7 @@ GrammarRule rules[] =
   /* TOKEN_STRING        */ PREFIX(literal),
   /* TOKEN_INTERPOLATION */ PREFIX(stringInterpolation),
   /* TOKEN_LINE          */ UNUSED,
+  /* TOKEN_OBJECT_NUMBER */ PREFIX(objectNumber),
   /* TOKEN_ERROR         */ UNUSED,
   /* TOKEN_EOF           */ UNUSED
 };

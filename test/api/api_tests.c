@@ -37,6 +37,9 @@ WrenForeignMethodFn APITest_bindForeignMethod(
   method = handleBindMethod(fullName);
   if (method != NULL) return method;
 
+  method = objectNumberBindMethod(fullName);
+  if (method != NULL) return method;
+
   method = listsBindMethod(fullName);
   if (method != NULL) return method;
 
@@ -68,6 +71,9 @@ WrenForeignClassMethods APITest_bindForeignClass(
   if (strncmp(module, "./test/api", 7) != 0) return methods;
 
   foreignClassBindClass(className, &methods);
+  if (methods.allocate != NULL) return methods;
+
+  objectNumberBindClass(className, &methods);
   if (methods.allocate != NULL) return methods;
 
   resetStackAfterForeignConstructBindClass(className, &methods);
@@ -104,6 +110,10 @@ int APITest_Run(WrenVM* vm, const char* inTestName)
   else if (strstr(inTestName, "/reset_stack_after_foreign_construct.wren") != NULL)
   {
     return resetStackAfterForeignConstructRunTests(vm);
+  }
+  else if (strstr(inTestName, "/object_number.wren") != NULL)
+  {
+    return objectNumberRunTests(vm);
   }
 
   return 0;
