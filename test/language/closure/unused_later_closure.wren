@@ -11,9 +11,9 @@ var closure
 
   {
     var b = "b"
-    closure = Fn.new { a }
-    if (false) Fn.new { b }
+    closure = fn { a }
+    if (false) fn { b }
   }
 
-  System.print(closure.call()) // expect: a
+  System.print(closure()) // expect: a
 }

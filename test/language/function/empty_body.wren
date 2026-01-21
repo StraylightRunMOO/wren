@@ -1,2 +1,2 @@
-var f = Fn.new {}
-System.print(f.call()) // expect: null
+var f = fn {}
+System.print(f()) // expect: null

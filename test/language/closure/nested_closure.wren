@@ -1,21 +1,21 @@
 var f = null
 
-Fn.new {
+fn {
   var a = "a"
-  Fn.new {
+  fn {
     var b = "b"
-    Fn.new {
+    fn {
       var c = "c"
-      f = Fn.new {
+      f = fn {
         System.print(a)
         System.print(b)
         System.print(c)
       }
-    }.call()
-  }.call()
-}.call()
+    }()
+  }()
+}()
 
-f.call()
+f()
 // expect: a
 // expect: b
 // expect: c

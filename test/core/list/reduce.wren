@@ -1,7 +1,7 @@
 var a = [1, 4, 2, 1, 5]
 var b = ["W", "o", "r", "l", "d"]
-var max = Fn.new {|a, b| a > b ? a : b }
-var sum = Fn.new {|a, b| a + b }
+var max = fn (a, b) { a > b ? a : b }
+var sum = fn (a, b) { a + b }
 
 System.print(a.reduce(max)) // expect: 5
 System.print(a.reduce(10, max)) // expect: 10

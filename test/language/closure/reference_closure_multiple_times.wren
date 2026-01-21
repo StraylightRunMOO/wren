@@ -2,12 +2,12 @@ var f = null
 
 {
   var a = "a"
-  f = Fn.new {
+  f = fn {
     System.print(a)
     System.print(a)
   }
 }
 
-f.call()
+f()
 // expect: a
 // expect: a

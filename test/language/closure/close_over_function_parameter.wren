@@ -1,9 +1,9 @@
 var f = null
 
-Fn.new {|param|
-  f = Fn.new {
+fn (param) {
+  f = fn {
     System.print(param)
   }
-}.call("param")
+}("param")
 
-f.call() // expect: param
+f() // expect: param

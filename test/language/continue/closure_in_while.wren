@@ -1,9 +1,9 @@
 var f
 while (f == null) {
   var i = "i"
-  f = Fn.new { System.print(i) }
+  f = fn { System.print(i) }
   continue
 }
 
-f.call()
+f()
 // expect: i

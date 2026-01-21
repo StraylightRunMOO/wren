@@ -1,1 +1,1 @@
-Fn.new {|| null } // expect error
+fn { null } // expect error

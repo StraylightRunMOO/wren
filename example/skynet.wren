@@ -13,7 +13,7 @@ class Skynet {
 
         var sum = 0
         for (task in fibers) {
-          sum = sum + task.call()
+          sum = sum + task()
         }
         Fiber.yield(sum)
       }
@@ -22,6 +22,6 @@ class Skynet {
 }
 
 var start = System.clock
-var result = Skynet.makeFiber(0, 1000000, 10).call()
+var result = Skynet.makeFiber(0, 1000000, 10)()
 var end = System.clock
 System.print("Result: %(result) in %(end - start) s")

@@ -1,4 +1,4 @@
-var f = Fn.new {
+var f = fn {
   // Hi.
 }
-System.print(f.call()) // expect: null
+System.print(f()) // expect: null

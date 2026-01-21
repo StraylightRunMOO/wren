@@ -3,23 +3,23 @@ var g = null
 
 {
   var local = "local"
-  f = Fn.new {
+  f = fn {
     System.print(local)
     local = "after f"
     System.print(local)
   }
 
-  g = Fn.new {
+  g = fn {
     System.print(local)
     local = "after g"
     System.print(local)
   }
 }
 
-f.call()
+f()
 // expect: local
 // expect: after f
 
-g.call()
+g()
 // expect: after f
 // expect: after g

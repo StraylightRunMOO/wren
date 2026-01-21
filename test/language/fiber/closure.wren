@@ -12,14 +12,14 @@ var closure
     a = "final"
   }
 
-  closure = Fn.new {
+  closure = fn {
     System.print(a)
   }
 }
 
 fiber.call()   // expect: before
-closure.call() // expect: before
+closure() // expect: before
 fiber.call()
-closure.call() // expect: after
+closure() // expect: after
 fiber.call()   // expect: after
-closure.call() // expect: final
+closure() // expect: final

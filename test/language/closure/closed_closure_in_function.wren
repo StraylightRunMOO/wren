@@ -2,9 +2,9 @@ var f = null
 
 {
   var local = "local"
-  f = Fn.new {
+  f = fn {
     System.print(local)
   }
 }
 
-f.call() // expect: local
+f() // expect: local

@@ -1,4 +1,4 @@
-var f = Fn.new {
+var f = fn {
   1
   2
   3

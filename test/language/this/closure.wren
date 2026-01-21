@@ -1,8 +1,8 @@
 class Foo {
   construct new() {}
-  getClosure { Fn.new { toString } }
+  getClosure { fn { toString } }
   toString { "Foo" }
 }
 
 var closure = Foo.new().getClosure
-System.print(closure.call()) // expect: Foo
+System.print(closure()) // expect: Foo

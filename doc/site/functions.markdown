@@ -13,31 +13,29 @@ class.
 
 ## Creating a function
 
-To create a function, we call `Fn.new`, which takes a block to execute.
-To call the function, we use `.call()` on the function instance.
+To create a function, use the `fn` keyword followed by a parameter list in
+parentheses and a block to execute.
 
 <pre class="snippet">
-var sayHello = Fn.new { System.print("hello") }
+var sayHello = fn () { System.print("hello") }
 
-sayHello.call() //> hello
+sayHello() //> hello
 </pre>
-
-Note that we'll see a shorthand syntax for creating a function below.
 
 ## Function parameters
 
 Of course, functions aren't very useful if you can't pass values to them. The
 function above takes no arguments. To change that, you can provide a parameter
-list surrounded by `|` immediately after the opening brace of the body.
+list surrounded by `()` immediately after the `fn` keyword.
 
-To pass arguments to the function, pass them to the `call` method:
+To pass arguments to the function, provide them in the call:
 
 <pre class="snippet">
-var sayMessage = Fn.new {|recipient, message|
+var sayMessage = fn (recipient, message) {
   System.print("message for %(recipient): %(message)")
 }
 
-sayMessage.call("Bob", "Good day!")
+sayMessage("Bob", "Good day!")
 </pre>
 
 It's an error to call a function with fewer arguments than its parameter list
@@ -55,18 +53,18 @@ value using a `return` statement. In other words, these two functions do the
 same thing:
 
 <pre class="snippet">
-Fn.new { "return value" }
+fn () { "return value" }
 
-Fn.new {
+fn () {
   return "return value"
 }
 </pre>
 
-The return value is handed back to you when using `call`:
+The return value is handed back to you when calling the function:
 
 <pre class="snippet">
-var fn = Fn.new { "some value" }
-var result = fn.call()
+var fn = fn () { "some value" }
+var result = fn()
 System.print(result) //> some value
 </pre>
 
@@ -80,7 +78,7 @@ leaving the scope where the function is defined:
 class Counter {
   static create() {
     var i = 0
-    return Fn.new { i = i + 1 }
+    return fn () { i = i + 1 }
   }
 }
 </pre>
@@ -92,9 +90,9 @@ to`i`:
 
 <pre class="snippet">
 var counter = Counter.create()
-System.print(counter.call()) //> 1
-System.print(counter.call()) //> 2
-System.print(counter.call()) //> 3
+System.print(counter()) //> 1
+System.print(counter()) //> 2
+System.print(counter()) //> 3
 </pre>
 
 ## Callable classes
@@ -123,12 +121,12 @@ using a method `where` which accepts a function:
 
 <pre class="snippet">
 var list = [1, 2, 3, 4, 5]
-var filtered = list.where(Fn.new {|value| value > 3 }) 
+var filtered = list.where(fn (value) { value > 3 }) 
 System.print(filtered.toList) //> [4, 5]
 </pre>
 
 This syntax is a bit less fun to read and write, so Wren implements the 
-_block argument_ concept. When a function is being passed to a method, 
+_block argument_ concept. When a function is being passed to a method,
 and is the last argument to the method, it can use a shorter syntax: 
 _just the block part_.
 
@@ -172,7 +170,7 @@ class Clickable {
 
   fireEvent(button) {
     if(_fn && button == _button) {
-      _fn.call(button)
+      _fn(button)
     }
   }
 }
@@ -217,14 +215,14 @@ Block arguments are purely syntax sugar for creating a function and passing it
 in one little blob of syntax. These two are equivalent:
 
 <pre class="snippet">
-onClick(Fn.new { System.print("clicked") })
+onClick(fn () { System.print("clicked") })
 onClick { System.print("clicked") }
 </pre>
 
 And this is just as valid:
 
 <pre class="snippet">
-var onEvent = Fn.new {|button|
+var onEvent = fn (button) {
   System.print("clicked by button %(button)")
 }
 
@@ -232,10 +230,21 @@ onClick(onEvent)
 onClick(1, onEvent)
 </pre>
 
-**Fn.new**   
-As you may have noticed by now, `Fn` accepts a block argument for the `Fn.new`.
-All the constructor does is return that argument right back to you!
+## fn() Syntax
 
+Functions can be created using the `fn` keyword followed by a parenthesized parameter list:
+
+<pre class="snippet">
+var onEvent = fn (button) {
+  System.print("clicked by button %(button)")
+}
+</pre>
+
+These two forms are equivalent:
+- `fn (args) { body }`
+- `fn { |args| body }`
+
+The `fn()` syntax provides a more familiar function syntax for users coming from other languages.
 
 <br><hr>
 <a class="right" href="classes.html">Classes &rarr;</a>

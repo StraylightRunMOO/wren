@@ -2,15 +2,15 @@ class Foo {
   static initialize { __field = "Foo field" }
 
   static closeOverGet {
-    return Fn.new { __field }
+    return fn { __field }
   }
 
   static closeOverSet {
-    return Fn.new { __field = "new value" }
+    return fn { __field = "new value" }
   }
 }
 
 Foo.initialize
-System.print(Foo.closeOverGet.call()) // expect: Foo field
-Foo.closeOverSet.call()
-System.print(Foo.closeOverGet.call()) // expect: new value
+System.print(Foo.closeOverGet()) // expect: Foo field
+Foo.closeOverSet()
+System.print(Foo.closeOverGet()) // expect: new value

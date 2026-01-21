@@ -1,10 +1,10 @@
-var f = Fn.new {
+var f = fn {
   while (true) {
     var i = "i"
-    return Fn.new { System.print(i) }
+    return fn { System.print(i) }
   }
 }
 
-var g = f.call()
-g.call()
+var g = f()
+g()
 // expect: i

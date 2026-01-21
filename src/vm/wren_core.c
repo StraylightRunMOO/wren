@@ -248,14 +248,6 @@ DEF_PRIMITIVE(fiber_yield1)
   return false;
 }
 
-DEF_PRIMITIVE(fn_new)
-{
-  if (!validateFn(vm, args[1], "Argument")) return false;
-
-  // The block argument is already a function, so just return it.
-  RETURN_VAL(args[1]);
-}
-
 DEF_PRIMITIVE(fn_arity)
 {
   RETURN_NUM(AS_CLOSURE(args[0])->fn->arity);
@@ -1320,7 +1312,6 @@ void wrenInitializeCore(WrenVM* vm)
   PRIMITIVE(vm->fiberClass, "try(_)", fiber_try1);
 
   vm->fnClass = AS_CLASS(wrenFindVariable(vm, coreModule, "Fn"));
-  PRIMITIVE(vm->fnClass->obj.classObj, "new(_)", fn_new);
 
   PRIMITIVE(vm->fnClass, "arity", fn_arity);
 

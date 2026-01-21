@@ -1,4 +1,4 @@
-Fn.new {
+fn {
   var a = "before"
   System.print(a) // expect: before
 
@@ -7,4 +7,4 @@ Fn.new {
 
   System.print(a = "arg") // expect: arg
   System.print(a) // expect: arg
-}.call()
+}()

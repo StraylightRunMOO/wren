@@ -30,7 +30,7 @@ import "./module" for M
 
 var v = 42
 
-var f = Fn.new {
+var f = fn () {
   var g = 2
 }
 

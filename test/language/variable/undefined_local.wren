@@ -1,3 +1,3 @@
-Fn.new {
+fn {
   System.print(notDefined)  // expect error
-}.call()
+}()

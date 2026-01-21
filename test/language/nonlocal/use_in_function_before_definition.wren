@@ -1,7 +1,7 @@
-var f = Fn.new {
+var f = fn {
   System.print(Global)
 }
 
 var Global = "global"
 
-f.call() // expect: global
+f() // expect: global

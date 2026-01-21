@@ -1,8 +1,8 @@
-var f = Fn.new {
+var f = fn {
   for (i in [1, 2, 3]) {
     return i
   }
 }
 
-System.print(f.call())
+System.print(f())
 // expect: 1

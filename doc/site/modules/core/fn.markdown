@@ -5,23 +5,6 @@ A first class function&mdash;an object that wraps an executable chunk of code.
 
 [functions]: ../../functions.html
 
-## Static Methods
-
-### Fn.**new**(function)
-
-Creates a new function from... `function`. Of course, `function` is already a
-function, so this really just returns the argument. It exists mainly to let you
-create a "bare" function when you don't want to immediately pass it as a [block
-argument](../functions.html#block-arguments) to some other method.
-
-<pre class="snippet">
-var fn = Fn.new {
-  System.print("The body")
-}
-</pre>
-
-It is a runtime error if `function` is not a function.
-
 ## Methods
 
 ### **arity**
@@ -29,8 +12,8 @@ It is a runtime error if `function` is not a function.
 The number of arguments the function requires.
 
 <pre class="snippet">
-System.print(Fn.new {}.arity)             //> 0
-System.print(Fn.new {|a, b, c| a }.arity) //> 3
+System.print(fn {}.arity)             //> 0
+System.print(fn (a, b, c) { a }.arity) //> 3
 </pre>
 
 ### **call**(args...)
@@ -38,7 +21,7 @@ System.print(Fn.new {|a, b, c| a }.arity) //> 3
 Invokes the function with the given arguments.
 
 <pre class="snippet">
-var fn = Fn.new { |arg|
+var fn = fn (arg) {
   System.print(arg)     //> Hello world
 }
 
@@ -48,7 +31,7 @@ fn.call("Hello world")
 When a function is followed immediately by a parenthesized argument list, that is syntax sugar for calling `call`. These two forms are exactly equivalent:
 
 <pre class="snippet">
-var fn = Fn.new { |a, b| a + b }
+var fn = fn (a, b) { a + b }
 System.print(fn.call(1, 2)) //> 3
 System.print(fn(1, 2))      //> 3
 </pre>

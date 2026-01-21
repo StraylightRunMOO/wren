@@ -94,6 +94,7 @@ typedef enum
   TOKEN_CONSTRUCT,
   TOKEN_ELSE,
   TOKEN_FALSE,
+  TOKEN_FN,
   TOKEN_FOR,
   TOKEN_FOREIGN,
   TOKEN_IF,
@@ -608,6 +609,7 @@ static Keyword keywords[] =
   {"construct", 9, TOKEN_CONSTRUCT},
   {"else",      4, TOKEN_ELSE},
   {"false",     5, TOKEN_FALSE},
+  {"fn",        2, TOKEN_FN},
   {"for",       3, TOKEN_FOR},
   {"foreign",   7, TOKEN_FOREIGN},
   {"if",        2, TOKEN_IF},
@@ -1765,7 +1767,8 @@ typedef enum
   PREC_TERM,          // + -
   PREC_FACTOR,        // * / %
   PREC_UNARY,         // unary - ! ~
-  PREC_CALL,          // . () []
+  PREC_APPLY,         // () {} []
+  PREC_CALL,          // .
   PREC_PRIMARY
 } Precedence;
 
@@ -2043,6 +2046,68 @@ static void callMethod(Compiler* compiler, int numArgs, const char* name,
   emitShortArg(compiler, (Code)(CODE_CALL_0 + numArgs), symbol);
 }
 
+// Parses a function expression after the "fn" keyword.
+static void fnExpression(Compiler* compiler, bool canAssign)
+{
+  Compiler fnCompiler;
+  initCompiler(&fnCompiler, compiler->parser, compiler, true);
+  
+  // Make a signature to track the arity.
+  Signature signature = { "", 0, SIG_METHOD, 0 };
+  
+  // Parse the optional parameter list.
+  if (match(compiler, TOKEN_LEFT_PAREN))
+  {
+    if (!match(compiler, TOKEN_RIGHT_PAREN))
+    {
+      finishParameterList(&fnCompiler, &signature);
+      consume(compiler, TOKEN_RIGHT_PAREN, "Expect ')' after function parameters.");
+    }
+  }
+  
+  fnCompiler.numSlots = signature.arity;
+  
+  // Compile the body.
+  consume(compiler, TOKEN_LEFT_BRACE, "Expect '{' after function parameters.");
+  finishBody(&fnCompiler);
+  
+  // Name the function.
+  endCompiler(&fnCompiler, "fn", 2);
+}
+
+// Parses the rest of a block argument after the "{".
+static void finishBlockArgument(Compiler* compiler, Signature* signature)
+{
+  // Include the block argument in the arity.
+  signature->type = SIG_METHOD;
+  signature->arity++;
+  
+  Compiler fnCompiler;
+  initCompiler(&fnCompiler, compiler->parser, compiler, true);
+  
+  // Make a dummy signature to track the arity.
+  Signature fnSignature = { "", 0, SIG_METHOD, 0 };
+  
+  // Parse the parameter list, if any.
+  if (match(compiler, TOKEN_PIPE))
+  {
+    finishParameterList(&fnCompiler, &fnSignature);
+    consume(compiler, TOKEN_PIPE, "Expect '|' after function parameters.");
+  }
+  
+  fnCompiler.fn->arity = fnSignature.arity;
+  
+  finishBody(&fnCompiler);
+  
+  // Name the function based on the method its passed to.
+  char blockName[MAX_METHOD_SIGNATURE + 15];
+  int blockLength;
+  signatureToString(signature, blockName, &blockLength);
+  memmove(blockName + blockLength, " block argument", 16);
+  
+  endCompiler(&fnCompiler, blockName, blockLength + 15);
+}
+
 // Compiles an (optional) argument list for a method call with [methodSignature]
 // and then calls it.
 static void methodCall(Compiler* compiler, Code instruction,
@@ -2068,37 +2133,10 @@ static void methodCall(Compiler* compiler, Code instruction,
     consume(compiler, TOKEN_RIGHT_PAREN, "Expect ')' after arguments.");
   }
 
-  // Parse the block argument, if any.
+  // Parse an optional block argument.
   if (match(compiler, TOKEN_LEFT_BRACE))
   {
-    // Include the block argument in the arity.
-    called.type = SIG_METHOD;
-    called.arity++;
-
-    Compiler fnCompiler;
-    initCompiler(&fnCompiler, compiler->parser, compiler, false);
-
-    // Make a dummy signature to track the arity.
-    Signature fnSignature = { "", 0, SIG_METHOD, 0 };
-
-    // Parse the parameter list, if any.
-    if (match(compiler, TOKEN_PIPE))
-    {
-      finishParameterList(&fnCompiler, &fnSignature);
-      consume(compiler, TOKEN_PIPE, "Expect '|' after function parameters.");
-    }
-
-    fnCompiler.fn->arity = fnSignature.arity;
-
-    finishBody(&fnCompiler);
-
-    // Name the function based on the method its passed to.
-    char blockName[MAX_METHOD_SIGNATURE + 15];
-    int blockLength;
-    signatureToString(&called, blockName, &blockLength);
-    memmove(blockName + blockLength, " block argument", 16);
-
-    endCompiler(&fnCompiler, blockName, blockLength + 15);
+    finishBlockArgument(compiler, &called);
   }
 
   // TODO: Allow Grace-style mixfix methods?
@@ -2837,7 +2875,7 @@ void constructorSignature(Compiler* compiler, Signature* signature)
 
 GrammarRule rules[] =
 {
-  /* TOKEN_LEFT_PAREN    */ { grouping, call, NULL, PREC_CALL, NULL },
+  /* TOKEN_LEFT_PAREN    */ { grouping, call, NULL, PREC_APPLY, NULL },
   /* TOKEN_RIGHT_PAREN   */ UNUSED,
   /* TOKEN_LEFT_BRACKET  */ { list, subscript, subscriptSignature, PREC_CALL, NULL },
   /* TOKEN_RIGHT_BRACKET */ UNUSED,
@@ -2877,6 +2915,7 @@ GrammarRule rules[] =
   /* TOKEN_CONSTRUCT     */ { NULL, NULL, constructorSignature, PREC_NONE, NULL },
   /* TOKEN_ELSE          */ UNUSED,
   /* TOKEN_FALSE         */ PREFIX(boolean),
+  /* TOKEN_FN            */ PREFIX(fnExpression),
   /* TOKEN_FOR           */ UNUSED,
   /* TOKEN_FOREIGN       */ UNUSED,
   /* TOKEN_IF            */ UNUSED,
