@@ -45,6 +45,14 @@ var fn = Fn.new { |arg|
 fn.call("Hello world")
 </pre>
 
+When a function is followed immediately by a parenthesized argument list, that is syntax sugar for calling `call`. These two forms are exactly equivalent:
+
+<pre class="snippet">
+var fn = Fn.new { |a, b| a + b }
+System.print(fn.call(1, 2)) //> 3
+System.print(fn(1, 2))      //> 3
+</pre>
+
 It is a runtime error if the number of arguments given is less than the arity
 of the function. If more arguments are given than the function's arity they are
 ignored.
