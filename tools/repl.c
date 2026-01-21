@@ -350,54 +350,28 @@ static void executeCode(WrenVM* vm, const char* code)
     }
   }
 
-  // Also not an expression if it ends with a semicolon
-  // (blocks are OK for single-line expressions like fn {}())
-  if (strchr(code, ';') != NULL)
+  // Also not an expression if it ends with certain characters or contains blocks
+  if (strchr(code, ';') != NULL || strchr(code, '{') != NULL)
   {
     isExpression = false;
   }
 
   if (isExpression && strlen(trimmed) > 0)
   {
-    // For expressions: wrap in block to capture timing and format output
+    // Try to evaluate and print the expression
     char wrapped[MAX_LINE_LENGTH * 10 + 100];
-    snprintf(wrapped, sizeof(wrapped),
-      "{\n"
-      "  var repl_start = System.clock\n"
-      "  var repl_result = (%s)\n"  // Execute and capture result
-      "  var repl_end = System.clock\n"
-      "  var repl_ns = (repl_end - repl_start) * 1000000000\n"  // Convert to nanoseconds
-      "  var repl_unit = \"ns\"\n"
-      "  var repl_value = repl_ns\n"
-      "  if (repl_ns >= 1000000000) {\n"
-      "    repl_value = repl_ns / 1000000000\n"
-      "    repl_unit = \"s\"\n"
-      "  } else if (repl_ns >= 1000000) {\n"
-      "    repl_value = repl_ns / 1000000\n"
-      "    repl_unit = \"ms\"\n"
-      "  } else if (repl_ns >= 1000) {\n"
-      "    repl_value = repl_ns / 1000\n"
-      "    repl_unit = \"μs\"\n"
-      "  }\n"
-      "  var repl_display = repl_value.toString\n"
-      "  if (repl_display.contains(\".\")) {\n"
-      "    repl_display = repl_display[0..6]\n"
-      "  }\n"
-      "  System.print(\"=> %(repl_result) [%(repl_display)%(repl_unit)]\")\n"
-      "}\n",
-      code);
-    
+    snprintf(wrapped, sizeof(wrapped), "System.print(%s)", code);
+
     WrenInterpretResult result = wrenInterpret(vm, "repl", wrapped);
-    
+
+    // If that failed, just execute it normally
     if (result == WREN_RESULT_COMPILE_ERROR)
     {
-      // If expression wrapping failed, try as statement
       wrenInterpret(vm, "repl", code);
     }
   }
   else
   {
-    // Execute as normal statement
     wrenInterpret(vm, "repl", code);
   }
 }

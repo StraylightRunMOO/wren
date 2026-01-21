@@ -245,7 +245,12 @@ static inline bool wrenIsLocalName(const char* name)
 
 static inline bool wrenIsFalsyValue(Value value)
 {
-  return IS_FALSE(value) || IS_NULL(value);
+  // Ruby/JS-style: false, null, 0, 0.0, empty [], and empty {} are falsy.
+  if (IS_FALSE(value) || IS_NULL(value)) return true;
+  if (IS_NUM(value) && AS_NUM(value) == 0) return true;
+  if (IS_LIST(value) && AS_LIST(value)->elements.count == 0) return true;
+  if (IS_MAP(value) && AS_MAP(value)->count == 0) return true;
+  return false;
 }
 
 #endif

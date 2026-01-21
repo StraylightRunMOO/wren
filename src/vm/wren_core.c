@@ -356,28 +356,38 @@ DEF_PRIMITIVE(list_iterate)
 {
   ObjList* list = AS_LIST(args[0]);
 
-  // If we're starting the iteration, return the first index.
+  // If we're starting the iteration, return 1 (representing index 0).
   if (IS_NULL(args[1]))
   {
-    if (list->elements.count == 0) RETURN_FALSE;
-    RETURN_NUM(0);
+    if (list->elements.count == 0) RETURN_NULL;
+    RETURN_NUM(1);
   }
 
   if (!validateInt(vm, args[1], "Iterator")) return false;
 
   // Stop if we're out of bounds.
   double index = AS_NUM(args[1]);
-  if (index < 0 || index >= list->elements.count - 1) RETURN_FALSE;
+  if (index < 1 || index >= list->elements.count) RETURN_NULL;
 
-  // Otherwise, move to the next index.
+  // Otherwise, move to the next index (iterator is 1-based).
   RETURN_NUM(index + 1);
 }
 
 DEF_PRIMITIVE(list_iteratorValue)
 {
   ObjList* list = AS_LIST(args[0]);
-  uint32_t index = validateIndex(vm, args[1], list->elements.count, "Iterator");
-  if (index == UINT32_MAX) return false;
+  // Iterator is 1-based, convert to 0-based index
+  if (!validateInt(vm, args[1], "Iterator")) return false;
+  double iterVal = AS_NUM(args[1]);
+  if (iterVal < 1) {
+    vm->fiber->error = wrenStringFormat(vm, "Iterator out of bounds.");
+    return false;
+  }
+  uint32_t index = (uint32_t)(iterVal - 1);
+  if (index >= list->elements.count) {
+    vm->fiber->error = wrenStringFormat(vm, "Iterator out of bounds.");
+    return false;
+  }
 
   RETURN_VAL(list->elements.data[index]);
 }
@@ -521,7 +531,7 @@ DEF_PRIMITIVE(map_iterate)
 {
   ObjMap* map = AS_MAP(args[0]);
 
-  if (map->count == 0) RETURN_FALSE;
+  if (map->count == 0) RETURN_NULL;
 
   // If we're starting the iteration, start at the first used entry.
   uint32_t index = 0;
@@ -531,10 +541,12 @@ DEF_PRIMITIVE(map_iterate)
   {
     if (!validateInt(vm, args[1], "Iterator")) return false;
 
-    if (AS_NUM(args[1]) < 0) RETURN_FALSE;
-    index = (uint32_t)AS_NUM(args[1]);
+    double iterVal = AS_NUM(args[1]);
+    if (iterVal < 1) RETURN_NULL;
+    // Iterator is 1-based
+    index = (uint32_t)(iterVal - 1);
 
-    if (index >= map->capacity) RETURN_FALSE;
+    if (index >= map->capacity) RETURN_NULL;
 
     // Advance the iterator.
     index++;
@@ -543,11 +555,12 @@ DEF_PRIMITIVE(map_iterate)
   // Find a used entry, if any.
   for (; index < map->capacity; index++)
   {
-    if (!IS_UNDEFINED(map->entries[index].key)) RETURN_NUM(index);
+    // Return 1-based iterator (index + 1)
+    if (!IS_UNDEFINED(map->entries[index].key)) RETURN_NUM(index + 1);
   }
 
   // If we get here, walked all of the entries.
-  RETURN_FALSE;
+  RETURN_NULL;
 }
 
 DEF_PRIMITIVE(map_remove)
@@ -560,13 +573,21 @@ DEF_PRIMITIVE(map_remove)
 DEF_PRIMITIVE(map_keyIteratorValue)
 {
   ObjMap* map = AS_MAP(args[0]);
-  uint32_t index = validateIndex(vm, args[1], map->capacity, "Iterator");
-  if (index == UINT32_MAX) return false;
+  // Iterator is 1-based, convert to 0-based index
+  if (!validateInt(vm, args[1], "Iterator")) return false;
+  double iterVal = AS_NUM(args[1]);
+  if (iterVal < 1) {
+    RETURN_ERROR("Iterator out of bounds.");
+  }
+  uint32_t index = (uint32_t)(iterVal - 1);
+  if (index >= map->capacity) {
+    RETURN_ERROR("Iterator out of bounds.");
+  }
 
   MapEntry* entry = &map->entries[index];
   if (IS_UNDEFINED(entry->key))
   {
-    RETURN_ERROR("Invalid map iterator.");
+    RETURN_ERROR("Iterator out of bounds.");
   }
 
   RETURN_VAL(entry->key);
@@ -575,13 +596,21 @@ DEF_PRIMITIVE(map_keyIteratorValue)
 DEF_PRIMITIVE(map_valueIteratorValue)
 {
   ObjMap* map = AS_MAP(args[0]);
-  uint32_t index = validateIndex(vm, args[1], map->capacity, "Iterator");
-  if (index == UINT32_MAX) return false;
+  // Iterator is 1-based, convert to 0-based index
+  if (!validateInt(vm, args[1], "Iterator")) return false;
+  double iterVal = AS_NUM(args[1]);
+  if (iterVal < 1) {
+    RETURN_ERROR("Iterator out of bounds.");
+  }
+  uint32_t index = (uint32_t)(iterVal - 1);
+  if (index >= map->capacity) {
+    RETURN_ERROR("Iterator out of bounds.");
+  }
 
   MapEntry* entry = &map->entries[index];
   if (IS_UNDEFINED(entry->key))
   {
-    RETURN_ERROR("Invalid map iterator.");
+    RETURN_ERROR("Iterator out of bounds.");
   }
 
   RETURN_VAL(entry->value);
@@ -916,41 +945,76 @@ DEF_PRIMITIVE(range_isInclusive)
   RETURN_BOOL(AS_RANGE(args[0])->isInclusive);
 }
 
+// Use negative indices to ensure iterator values are never 0 (falsy)
+// Iterator -1 means index 0 (first value), -2 means index 1, etc.
+// This avoids precision loss from adding large offsets to floats
+
 DEF_PRIMITIVE(range_iterate)
 {
   ObjRange* range = AS_RANGE(args[0]);
 
   // Special case: empty range.
-  if (range->from == range->to && !range->isInclusive) RETURN_FALSE;
+  if (range->from == range->to && !range->isInclusive) RETURN_NULL;
 
-  // Start the iteration.
-  if (IS_NULL(args[1])) RETURN_NUM(range->from);
-
-  if (!validateNum(vm, args[1], "Iterator")) return false;
-
-  double iterator = AS_NUM(args[1]);
-
-  // Iterate towards [to] from [from].
-  if (range->from < range->to)
+  double index;
+  if (IS_NULL(args[1]))
   {
-    iterator++;
-    if (iterator > range->to) RETURN_FALSE;
+    // Start at index 0 (encoded as -1)
+    index = 0;
   }
   else
   {
-    iterator--;
-    if (iterator < range->to) RETURN_FALSE;
+    if (!validateNum(vm, args[1], "Iterator")) return false;
+    // Decode: -1 -> 0, -2 -> 1, -3 -> 2, etc.
+    double encodedIndex = AS_NUM(args[1]);
+    index = -encodedIndex - 1;
+    index++; // Move to next index
   }
 
-  if (!range->isInclusive && iterator == range->to) RETURN_FALSE;
+  // Calculate the actual value at this index
+  double value;
+  if (range->from < range->to)
+  {
+    value = range->from + index;
+    if (value > range->to) RETURN_NULL;
+  }
+  else
+  {
+    value = range->from - index;
+    if (value < range->to) RETURN_NULL;
+  }
 
-  RETURN_NUM(iterator);
+  if (!range->isInclusive && value == range->to) RETURN_NULL;
+
+  // Return encoded index: 0 -> -1, 1 -> -2, 2 -> -3, etc.
+  RETURN_NUM(-index - 1);
 }
 
 DEF_PRIMITIVE(range_iteratorValue)
 {
-  // Assume the iterator is a number so that is the value of the range.
-  RETURN_VAL(args[1]);
+  ObjRange* range = AS_RANGE(args[0]);
+
+  if (!IS_NUM(args[1])) {
+    vm->fiber->error = wrenStringFormat(vm, "Iterator must be a number.");
+    return false;
+  }
+
+  // Decode: -1 -> index 0, -2 -> index 1, etc.
+  double encodedIndex = AS_NUM(args[1]);
+  double index = -encodedIndex - 1;
+
+  // Calculate the actual value at this index
+  double value;
+  if (range->from < range->to)
+  {
+    value = range->from + index;
+  }
+  else
+  {
+    value = range->from - index;
+  }
+
+  RETURN_NUM(value);
 }
 
 DEF_PRIMITIVE(range_toString)
@@ -1086,56 +1150,72 @@ DEF_PRIMITIVE(string_iterate)
 {
   ObjString* string = AS_STRING(args[0]);
 
-  // If we're starting the iteration, return the first index.
+  // If we're starting the iteration, return 1 (representing index 0).
   if (IS_NULL(args[1]))
   {
-    if (string->length == 0) RETURN_FALSE;
-    RETURN_NUM(0);
+    if (string->length == 0) RETURN_NULL;
+    RETURN_NUM(1);
   }
 
   if (!validateInt(vm, args[1], "Iterator")) return false;
 
-  if (AS_NUM(args[1]) < 0) RETURN_FALSE;
-  uint32_t index = (uint32_t)AS_NUM(args[1]);
+  double iterVal = AS_NUM(args[1]);
+  if (iterVal < 1) RETURN_NULL;
+  // Iterator is 1-based, convert to 0-based index
+  uint32_t index = (uint32_t)(iterVal - 1);
 
   // Advance to the beginning of the next UTF-8 sequence.
   do
   {
     index++;
-    if (index >= string->length) RETURN_FALSE;
+    if (index >= string->length) RETURN_NULL;
   } while ((string->value[index] & 0xc0) == 0x80);
 
-  RETURN_NUM(index);
+  // Return 1-based iterator
+  RETURN_NUM(index + 1);
 }
 
 DEF_PRIMITIVE(string_iterateByte)
 {
   ObjString* string = AS_STRING(args[0]);
 
-  // If we're starting the iteration, return the first index.
+  // If we're starting the iteration, return 1 (representing index 0).
   if (IS_NULL(args[1]))
   {
-    if (string->length == 0) RETURN_FALSE;
-    RETURN_NUM(0);
+    if (string->length == 0) RETURN_NULL;
+    RETURN_NUM(1);
   }
 
   if (!validateInt(vm, args[1], "Iterator")) return false;
 
-  if (AS_NUM(args[1]) < 0) RETURN_FALSE;
-  uint32_t index = (uint32_t)AS_NUM(args[1]);
+  double iterVal = AS_NUM(args[1]);
+  if (iterVal < 1) RETURN_NULL;
+  // Iterator is 1-based, convert to 0-based index
+  uint32_t index = (uint32_t)(iterVal - 1);
 
   // Advance to the next byte.
   index++;
-  if (index >= string->length) RETURN_FALSE;
+  if (index >= string->length) RETURN_NULL;
 
-  RETURN_NUM(index);
+  // Return 1-based iterator
+  RETURN_NUM(index + 1);
 }
 
 DEF_PRIMITIVE(string_iteratorValue)
 {
   ObjString* string = AS_STRING(args[0]);
-  uint32_t index = validateIndex(vm, args[1], string->length, "Iterator");
-  if (index == UINT32_MAX) return false;
+  // Iterator is 1-based, convert to 0-based index
+  if (!validateInt(vm, args[1], "Iterator")) return false;
+  double iterVal = AS_NUM(args[1]);
+  if (iterVal < 1) {
+    vm->fiber->error = wrenStringFormat(vm, "Iterator out of bounds.");
+    return false;
+  }
+  uint32_t index = (uint32_t)(iterVal - 1);
+  if (index >= string->length) {
+    vm->fiber->error = wrenStringFormat(vm, "Iterator out of bounds.");
+    return false;
+  }
 
   RETURN_VAL(wrenStringCodePointAt(vm, string, index));
 }

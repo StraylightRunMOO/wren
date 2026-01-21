@@ -1,4 +1,4 @@
-// False and null are false.
+// False, null, 0, and empty collections are false.
 while (false) {
   System.print("bad")
   break
@@ -9,18 +9,38 @@ while (null) {
   break
 }
 
+while (0) {
+  System.print("bad")
+  break
+}
+
+while ([]) {
+  System.print("bad")
+  break
+}
+
+while ({}) {
+  System.print("bad")
+  break
+}
+
 // Everything else is true.
 while (true) {
   System.print("true") // expect: true
   break
 }
 
-while (0) {
-  System.print(0) // expect: 0
+while (1) {
+  System.print(1) // expect: 1
   break
 }
 
 while ("") {
   System.print("string") // expect: string
+  break
+}
+
+while ([1]) {
+  System.print("list") // expect: list
   break
 }

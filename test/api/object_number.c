@@ -50,7 +50,7 @@ static void objectNumberCallback(WrenVM* vm, int64_t value)
 int objectNumberRunTests(WrenVM* vm)
 {
   // Test that Object Numbers work
-  printf("Object Number basic test passed!\n");
+  //printf("Object Number basic test passed!\n");
   return 0;
 }
 
