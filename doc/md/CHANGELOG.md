@@ -1,3 +1,40 @@
+## 0.5.0 (Unreleased)
+
+### Language
+- **New `fn` syntax**: Anonymous functions now use the `fn` keyword instead of `Fn.new`:
+  ```wren
+  // Before:
+  var f = Fn.new { |a, b| a + b }
+  
+  // After:
+  var f = fn (a, b) { a + b }
+  ```
+- **Method call syntactic sugar**: Methods can be called without parentheses when no arguments are needed:
+  ```wren
+  obj.method  // Same as obj.method()
+  ```
+- **Function call syntactic sugar**: The `.call()` method on functions can be omitted:
+  ```wren
+  var f = fn { 42 }
+  f()       // Same as f.call()
+  ```
+- **0 is now falsy**: The number `0` is now considered falsy in boolean contexts:
+  ```wren
+  System.print(0 || "default")  // Prints: default
+  ```
+- **Object Number literals**: New `#123` syntax allows embedding foreign objects via C callback:
+  ```wren
+  var obj = #123  // Calls user-defined callback to create value
+  ```
+- **Improved `this`/`super` resolution**: Fixed resolution of `this` and `super` in closures within methods.
+
+### Build System
+- Migrated from Premake/Make to CMake for cross-platform building.
+- See [BUILD.md](../BUILD.md) for detailed build instructions.
+
+### API
+- Added `objectNumberFn` callback to `WrenConfiguration` for handling Object Number literals.
+
 ## 0.4.0
 
 ### Language
@@ -122,6 +159,7 @@ This list is not exhaustive. For a fuller history see the commit log above.
 - Add Stdin.isTerminal
 - Added Platform class
 - Rename `process` module to `os`
+- Added `Platform.exit(code)`
 
 ## 0.1.0
 

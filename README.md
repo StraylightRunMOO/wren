@@ -1,7 +1,7 @@
 ## Wren is a small, fast, class-based concurrent scripting language
 
 Think Smalltalk in a Lua-sized package with a dash of Erlang and wrapped up in
-a familiar, modern [syntax][].
+a familiar, modern [syntax][syntax].
 
 ```dart
 System.print("Hello, world!")
@@ -40,11 +40,144 @@ while (!adjectives.isDone) System.print(adjectives.call())
     and [an easy-to-use C API][embedding]. It compiles cleanly as C99, C++98
     or anything later.
 
-If you like the sound of this, [let's get started][started]. You can even try
-it [in your browser][browser]! Excited? Well, come on and [get
-involved][contribute]!
+## Quick Start
 
-[![Build Status](https://travis-ci.org/wren-lang/wren.svg?branch=main)](https://travis-ci.org/wren-lang/wren)
+### Building
+
+Wren uses CMake for building. You'll need CMake 3.15 or later.
+
+```bash
+# Configure the build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+# Build the project
+cmake --build build -j$(nproc)
+```
+
+This creates:
+- `build/lib/libwren.a` - Static library
+- `build/lib/libwren.so` - Shared library (on Unix)
+- `build/bin/wren_test` - Test runner
+- `build/bin/wren_repl` - Interactive REPL
+
+For more build options, see [BUILD.md](BUILD.md).
+
+### Running
+
+```bash
+# Run the REPL
+./build/bin/wren_repl
+
+# Run a Wren file
+./build/bin/wren_test my_script.wren
+```
+
+### Testing
+
+```bash
+# Run all tests
+python3 util/test.py
+
+# Run a specific test suite
+python3 util/test.py language
+python3 util/test.py core
+python3 util/test.py api
+
+# Run a specific test file
+python3 util/test.py language/function
+```
+
+### Benchmarks
+
+```bash
+# Run benchmarks
+./build/bin/wren_test test/benchmark/binary_trees.wren
+./build/bin/wren_test test/benchmark/fib.wren
+./build/bin/wren_test test/benchmark/delta_blue.wren
+```
+
+## New Features
+
+### Anonymous Functions with `fn`
+
+Wren now uses the `fn` keyword for anonymous functions:
+
+```dart
+// Basic anonymous function
+var greet = fn (name) { "Hello, %(name)!" }
+System.print(greet("Wren"))  // Hello, Wren!
+
+// Shorthand for no parameters
+var getNum = fn { 42 }
+System.print(getNum())  // 42
+
+// Used with higher-order functions
+var doubled = [1, 2, 3].map(fn (n) { n * 2 })
+System.print(doubled)  // [2, 4, 6]
+```
+
+### Method Call Without Parentheses
+
+Methods that take no arguments can be called without parentheses:
+
+```dart
+class Counter {
+  construct new() { _count = 0 }
+  increment { _count = _count + 1 }
+  value { _count }
+}
+
+var counter = Counter.new
+counter.increment  // Same as counter.increment()
+System.print(counter.value)  // Same as counter.value()
+```
+
+### 0 is Falsy
+
+The number `0` is now falsy in boolean contexts:
+
+```dart
+System.print(0 || "default")    // default
+System.print(0 && "yes")        // 0
+System.print(1 || "default")    // 1
+```
+
+### Object Number Literals
+
+Embed foreign objects using `#` syntax with a C callback:
+
+```c
+// In your C code
+WrenConfiguration config;
+wrenInitConfiguration(&config);
+config.objectNumberFn = [](WrenVM* vm, int64_t value) {
+    // Create and return your object
+    wrenSetSlotDouble(vm, 0, value * 2);
+};
+```
+
+```dart
+// In Wren
+var doubled = #21   // Calls your callback with 21
+System.print(doubled)  // 42
+```
+
+## Documentation
+
+- [Language Syntax][syntax]
+- [Embedding Guide][embedding]
+- [Concurrency (Fibers)][fibers]
+- [Classes][classes]
+- [Performance][perf]
+
+## Getting Involved
+
+- Official website: http://wren.io/
+- GitHub: https://github.com/wren-lang/wren
+- Try Wren in your browser: http://ppvk.github.io/wren-nest/
+
+If you like the sound of this, [let's get started][started]. Excited? Well, come on and [get
+involved][contribute]!
 
 [syntax]: http://wren.io/syntax.html
 [src]: https://github.com/wren-lang/wren/tree/main/src
@@ -54,5 +187,4 @@ involved][contribute]!
 [fibers]: http://wren.io/concurrency.html
 [embedding]: http://wren.io/embedding/
 [started]: http://wren.io/getting-started.html
-[browser]: http://ppvk.github.io/wren-nest/
 [contribute]: http://wren.io/contributing.html
