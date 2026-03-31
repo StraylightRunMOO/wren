@@ -1,1 +1,1 @@
-fn { null } // expect error
+System.print((fn { null }).type) // expect: Fn

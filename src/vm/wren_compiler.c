@@ -1619,9 +1619,12 @@ static int findUpvalue(Compiler* compiler, const char* name, int length)
   // If we are at the top level, we didn't find it.
   if (compiler->parent == NULL) return -1;
   
-  // If we hit the method boundary (and the name isn't a static field), then
+  // If we hit the method boundary (and the name isn't a static field or 'this'/'super'), then
   // stop looking for it. We'll instead treat it as a self send.
-  if (name[0] != '_' && compiler->parent->enclosingClass != NULL) return -1;
+  if (name[0] != '_' && 
+      !(length == 4 && memcmp(name, "this", 4) == 0) &&
+      !(length == 5 && memcmp(name, "super", 5) == 0) &&
+      compiler->parent->enclosingClass != NULL) return -1;
   
   // See if it's a local variable in the immediately enclosing function.
   int local = resolveLocal(compiler->parent, name, length);
@@ -2050,7 +2053,10 @@ static void callMethod(Compiler* compiler, int numArgs, const char* name,
 static void fnExpression(Compiler* compiler, bool canAssign)
 {
   Compiler fnCompiler;
-  initCompiler(&fnCompiler, compiler->parser, compiler, true);
+  initCompiler(&fnCompiler, compiler->parser, compiler, false);
+  
+  // Inherit the enclosing class so 'super' can be used inside fn expressions.
+  fnCompiler.enclosingClass = compiler->enclosingClass;
   
   // Make a signature to track the arity.
   Signature signature = { "", 0, SIG_METHOD, 0 };
@@ -2066,6 +2072,7 @@ static void fnExpression(Compiler* compiler, bool canAssign)
   }
   
   fnCompiler.numSlots = signature.arity;
+  fnCompiler.fn->arity = signature.arity;
   
   // Compile the body.
   consume(compiler, TOKEN_LEFT_BRACE, "Expect '{' after function parameters.");
@@ -2084,6 +2091,10 @@ static void finishBlockArgument(Compiler* compiler, Signature* signature)
   
   Compiler fnCompiler;
   initCompiler(&fnCompiler, compiler->parser, compiler, true);
+  
+  // Inherit the enclosing class so 'super' and 'this' work inside block arguments.
+  fnCompiler.enclosingClass = compiler->enclosingClass;
+  fnCompiler.isInitializer = compiler->isInitializer;
   
   // Make a dummy signature to track the arity.
   Signature fnSignature = { "", 0, SIG_METHOD, 0 };

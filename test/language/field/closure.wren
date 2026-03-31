@@ -1,16 +1,16 @@
 class Foo {
   construct new() { _field = "Foo field" }
 
-  closeOverGet {
+  closeOverGet() {
     return fn { _field }
   }
 
-  closeOverSet {
+  closeOverSet() {
     return fn { _field = "new value" }
   }
 }
 
 var foo = Foo.new()
-System.print(foo.closeOverGet()) // expect: Foo field
-foo.closeOverSet()
-System.print(foo.closeOverGet()) // expect: new value
+System.print(foo.closeOverGet()()) // expect: Foo field
+foo.closeOverSet()()
+System.print(foo.closeOverGet()()) // expect: new value

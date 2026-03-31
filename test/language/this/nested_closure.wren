@@ -5,4 +5,4 @@ class Foo {
 }
 
 var closure = Foo.new().getClosure
-System.print(closure()()()) // expect: <fn>
+System.print(closure()()()) // expect: Foo
