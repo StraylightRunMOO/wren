@@ -9,6 +9,8 @@
 #include "wren_primitive.h"
 #include "wren_vm.h"
 
+#include "neco.h"
+
 #if WREN_OPT_META
   #include "wren_opt_meta.h"
 #endif
@@ -20,6 +22,9 @@
   #include <time.h>
   #include <stdio.h>
 #endif
+
+// Track nesting level of wrenInterpret calls to only start neco at outermost level
+static int interpretNestingLevel = 0;
 
 // The behavior of realloc() when the size is 0 is implementation defined. It
 // may return a non-NULL pointer which must not be dereferenced but nevertheless
@@ -322,14 +327,19 @@ static WrenForeignMethodFn findForeignMethod(WrenVM* vm,
   // If the host didn't provide it, see if it's an optional one.
   if (method == NULL)
   {
+    if (moduleName == NULL)
+    {
+      // Core module foreign methods
+      method = wrenCoreBindForeignMethod(vm, className, isStatic, signature);
+    }
 #if WREN_OPT_META
-    if (strcmp(moduleName, "meta") == 0)
+    else if (strcmp(moduleName, "meta") == 0)
     {
       method = wrenMetaBindForeignMethod(vm, className, isStatic, signature);
     }
 #endif
 #if WREN_OPT_RANDOM
-    if (strcmp(moduleName, "random") == 0)
+    else if (strcmp(moduleName, "random") == 0)
     {
       method = wrenRandomBindForeignMethod(vm, className, isStatic, signature);
     }
@@ -357,7 +367,8 @@ static void bindMethod(WrenVM* vm, int methodType, int symbol,
   {
     const char* name = AS_CSTRING(methodValue);
     method.type = METHOD_FOREIGN;
-    method.as.foreign = findForeignMethod(vm, module->name->value,
+    const char* moduleName = module->name != NULL ? module->name->value : NULL;
+    method.as.foreign = findForeignMethod(vm, moduleName,
                                           className,
                                           methodType == CODE_METHOD_STATIC,
                                           name);
@@ -366,7 +377,8 @@ static void bindMethod(WrenVM* vm, int methodType, int symbol,
     {
       vm->fiber->error = wrenStringFormat(vm,
           "Could not find foreign method '@' for class $ in module '$'.",
-          methodValue, classObj->name->value, module->name->value);
+          methodValue, classObj->name->value, 
+          moduleName != NULL ? moduleName : "(core)");
       return;
     }
   }
@@ -1512,18 +1524,63 @@ void wrenReleaseHandle(WrenVM* vm, WrenHandle* handle)
   DEALLOCATE(vm, handle);
 }
 
+// Context for running wrenInterpret inside neco
+typedef struct {
+  WrenVM* vm;
+  const char* module;
+  const char* source;
+  WrenInterpretResult result;
+} NecoInterpretCtx;
+
+static void necoInterpretWrapper(int argc, void* argv[]) {
+  (void)argc;
+  NecoInterpretCtx* ctx = (NecoInterpretCtx*)argv[0];
+  
+  ObjClosure* closure = wrenCompileSource(ctx->vm, ctx->module, ctx->source, false, true);
+  if (closure == NULL) {
+    ctx->result = WREN_RESULT_COMPILE_ERROR;
+    return;
+  }
+  
+  wrenPushRoot(ctx->vm, (Obj*)closure);
+  ObjFiber* fiber = wrenNewFiber(ctx->vm, closure);
+  wrenPopRoot(ctx->vm);
+  ctx->vm->apiStack = NULL;
+  
+  ctx->result = runInterpreter(ctx->vm, fiber);
+}
+
 WrenInterpretResult wrenInterpret(WrenVM* vm, const char* module,
                                   const char* source)
 {
-  ObjClosure* closure = wrenCompileSource(vm, module, source, false, true);
-  if (closure == NULL) return WREN_RESULT_COMPILE_ERROR;
+  // Increment nesting level
+  interpretNestingLevel++;
   
-  wrenPushRoot(vm, (Obj*)closure);
-  ObjFiber* fiber = wrenNewFiber(vm, closure);
-  wrenPopRoot(vm); // closure.
-  vm->apiStack = NULL;
-
-  return runInterpreter(vm, fiber);
+  WrenInterpretResult result;
+  
+  if (interpretNestingLevel > 1) {
+    // Nested call - run directly (we're already inside neco)
+    ObjClosure* closure = wrenCompileSource(vm, module, source, false, true);
+    if (closure == NULL) {
+      result = WREN_RESULT_COMPILE_ERROR;
+    } else {
+      wrenPushRoot(vm, (Obj*)closure);
+      ObjFiber* fiber = wrenNewFiber(vm, closure);
+      wrenPopRoot(vm);
+      vm->apiStack = NULL;
+      result = runInterpreter(vm, fiber);
+    }
+  } else {
+    // Outermost call - start neco to run the interpretation
+    NecoInterpretCtx ctx = { vm, module, source, WREN_RESULT_SUCCESS };
+    neco_start(necoInterpretWrapper, 1, &ctx);
+    result = ctx.result;
+  }
+  
+  // Decrement nesting level
+  interpretNestingLevel--;
+  
+  return result;
 }
 
 ObjClosure* wrenCompileSource(WrenVM* vm, const char* module, const char* source,

@@ -20,4 +20,9 @@
 
 void wrenInitializeCore(WrenVM* vm);
 
+// Binds foreign methods for the core module (called for foreign methods declared
+// in wren_core.wren)
+WrenForeignMethodFn wrenCoreBindForeignMethod(WrenVM* vm, const char* className,
+                                              bool isStatic, const char* signature);
+
 #endif

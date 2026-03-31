@@ -6,6 +6,17 @@ project(Wren
     LANGUAGES C
 )
 
+include(FetchContent)
+
+# Fetch neco library (single-file C library)
+FetchContent_Declare(
+    neco
+    GIT_REPOSITORY https://github.com/tidwall/neco.git
+    GIT_TAG        main
+)
+
+FetchContent_MakeAvailable(neco)
+
 # Set C standard
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -21,7 +32,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# Wren VM source files
+# Wren VM source files (neco.c included directly as single-file lib)
 set(WREN_VM_SOURCES
     src/vm/wren_compiler.c
     src/vm/wren_core.c
@@ -30,6 +41,8 @@ set(WREN_VM_SOURCES
     src/vm/wren_utils.c
     src/vm/wren_value.c
     src/vm/wren_vm.c
+    src/vm/wren_iterator.c
+    ${neco_SOURCE_DIR}/neco.c
 )
 
 set(WREN_VM_HEADERS
@@ -56,9 +69,10 @@ set(WREN_OPT_HEADERS
     src/optional/wren_opt_random.h
 )
 
-# Public header
+# Public headers
 set(WREN_PUBLIC_HEADERS
     src/include/wren.h
+    src/include/wren_iterator.h
 )
 
 # Static library target
@@ -77,6 +91,13 @@ target_include_directories(wren
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/vm
         ${CMAKE_CURRENT_SOURCE_DIR}/src/optional
+        ${neco_SOURCE_DIR}
+)
+
+# Compile definitions for neco (single-file library)
+set_source_files_properties(${neco_SOURCE_DIR}/neco.c PROPERTIES
+    COMPILE_DEFINITIONS "_GNU_SOURCE;_POSIX_C_SOURCE=200809L"
+    COMPILE_FLAGS "-Wno-unused-function -Wno-unused-variable"
 )
 
 # Shared library target
@@ -101,6 +122,7 @@ target_include_directories(wren_shared
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/vm
         ${CMAKE_CURRENT_SOURCE_DIR}/src/optional
+        ${neco_SOURCE_DIR}
 )
 
 # Compiler definitions

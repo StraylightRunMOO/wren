@@ -4,12 +4,14 @@
 #include <math.h>
 #include <string.h>
 #include <time.h>
+#include <stdio.h>
 
 #include "wren_common.h"
 #include "wren_core.h"
 #include "wren_math.h"
 #include "wren_primitive.h"
 #include "wren_value.h"
+#include "wren_iterator.h"
 
 #include "wren_core.wren.inc"
 
@@ -533,24 +535,36 @@ DEF_PRIMITIVE(map_iterate)
 
   if (map->count == 0) RETURN_NULL;
 
-  // If we're starting the iteration, start at the first used entry.
-  uint32_t index = 0;
+  // If we're starting the iteration, use neco iterator
+  if (IS_NULL(args[1]))
+  {
+    WrenIterator* iter = NULL;
+    if (wrenIteratorCreate(vm, args[0], &iter) != 0) {
+      RETURN_ERROR("Failed to create iterator");
+    }
+
+    WrenValue nextVal;
+    if (wrenIteratorNext(iter, &nextVal)) {
+      wrenIteratorRelease(iter);
+      RETURN_NUM(1);  // Return 1-based index for first element
+    } else {
+      wrenIteratorRelease(iter);
+      RETURN_NULL;
+    }
+  }
 
   // Otherwise, start one past the last entry we stopped at.
-  if (!IS_NULL(args[1]))
-  {
-    if (!validateInt(vm, args[1], "Iterator")) return false;
+  if (!validateInt(vm, args[1], "Iterator")) return false;
 
-    double iterVal = AS_NUM(args[1]);
-    if (iterVal < 1) RETURN_NULL;
-    // Iterator is 1-based
-    index = (uint32_t)(iterVal - 1);
+  double iterVal = AS_NUM(args[1]);
+  if (iterVal < 1) RETURN_NULL;
+  // Iterator is 1-based
+  uint32_t index = (uint32_t)(iterVal - 1);
 
-    if (index >= map->capacity) RETURN_NULL;
+  if (index >= map->capacity) RETURN_NULL;
 
-    // Advance the iterator.
-    index++;
-  }
+  // Advance the iterator.
+  index++;
 
   // Find a used entry, if any.
   for (; index < map->capacity; index++)
@@ -1290,6 +1304,90 @@ DEF_PRIMITIVE(system_writeString)
   RETURN_VAL(args[1]);
 }
 
+// Generator class implementation using neco coroutines
+
+// Finalizer for Generator objects (called by GC)
+static void generatorFinalize(void* data)
+{
+  WrenIterator* it = (WrenIterator*)data;
+  if (it != NULL) {
+    wrenIteratorRelease(it);
+  }
+}
+
+// Foreign method wrapper for Generator.new(_)
+static void generatorNew(WrenVM* vm)
+{
+  // Slot 0 is the Generator class (receiver), slot 1 is the iterable argument
+  ObjClass* generatorClass = AS_CLASS(vm->apiStack[0]);
+  Value iterable = vm->apiStack[1];
+
+  // Create the Generator foreign object
+  ObjForeign* foreign = wrenNewForeign(vm, generatorClass, sizeof(WrenIterator*));
+  WrenIterator** itPtr = (WrenIterator**)foreign->data;
+
+  // Create the iterator using neco
+  WrenIterator* it = NULL;
+  int result = wrenIteratorCreate(vm, iterable, &it);
+  if (result != 0 || it == NULL) {
+    vm->fiber->error = wrenStringFormat(vm, "Failed to create iterator for iterable.");
+    return;
+  }
+
+  *itPtr = it;
+  vm->apiStack[0] = OBJ_VAL(foreign);
+}
+
+// Foreign method wrapper for Generator.next()
+static void generatorNext(WrenVM* vm)
+{
+  // Slot 0 is the Generator instance
+  ObjForeign* foreign = AS_FOREIGN(vm->apiStack[0]);
+  WrenIterator** itPtr = (WrenIterator**)foreign->data;
+
+  if (*itPtr == NULL) {
+    vm->apiStack[0] = NULL_VAL;  // Already closed
+    return;
+  }
+
+  WrenValue nextVal;
+  int hasNext = wrenIteratorNext(*itPtr, &nextVal);
+
+  if (hasNext) {
+    vm->apiStack[0] = nextVal;
+  } else {
+    // Iterator is done - clean up
+    wrenIteratorRelease(*itPtr);
+    *itPtr = NULL;
+    vm->apiStack[0] = NULL_VAL;
+  }
+}
+
+// Binds foreign methods for the core module (called for foreign methods declared
+// in wren_core.wren, e.g., Generator methods)
+WrenForeignMethodFn wrenCoreBindForeignMethod(WrenVM* vm, const char* className,
+                                              bool isStatic, const char* signature)
+{
+  (void)vm;
+
+  if (className == NULL || signature == NULL) return NULL;
+
+  // Generator class foreign methods
+  if (strcmp(className, "Generator") == 0)
+  {
+    if (isStatic && strcmp(signature, "new(_)") == 0)
+    {
+      return generatorNew;
+    }
+    if (!isStatic && strcmp(signature, "next()") == 0)
+    {
+      return generatorNext;
+    }
+  }
+
+  return NULL;
+}
+
 // Creates either the Object or Class class in the core module with [name].
 static ObjClass* defineClass(WrenVM* vm, ObjModule* module, const char* name)
 {
@@ -1537,6 +1635,9 @@ void wrenInitializeCore(WrenVM* vm)
   PRIMITIVE(vm->rangeClass, "iterate(_)", range_iterate);
   PRIMITIVE(vm->rangeClass, "iteratorValue(_)", range_iteratorValue);
   PRIMITIVE(vm->rangeClass, "toString", range_toString);
+
+  // Generator class foreign methods are bound via wrenCoreBindForeignMethod
+  // when the foreign declarations in wren_core.wren are processed.
 
   ObjClass* systemClass = AS_CLASS(wrenFindVariable(vm, coreModule, "System"));
   PRIMITIVE(systemClass->obj.classObj, "clock", system_clock);
