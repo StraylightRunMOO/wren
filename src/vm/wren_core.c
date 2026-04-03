@@ -15,6 +15,11 @@
 
 #include "wren_core.wren.inc"
 
+/* neco stack size for generators - conservative for Wren */
+static void wrenCoreInitNeco(void) {
+    neco_set_stack_size(32768);  // 32 KiB per generator coroutine
+}
+
 DEF_PRIMITIVE(bool_not)
 {
   RETURN_BOOL(!AS_BOOL(args[0]));
@@ -354,25 +359,22 @@ DEF_PRIMITIVE(list_insert)
   RETURN_VAL(args[2]);
 }
 
-DEF_PRIMITIVE(list_iterate)
-{
-  ObjList* list = AS_LIST(args[0]);
-
-  // If we're starting the iteration, return 1 (representing index 0).
-  if (IS_NULL(args[1]))
-  {
-    if (list->elements.count == 0) RETURN_NULL;
-    RETURN_NUM(1);
-  }
-
-  if (!validateInt(vm, args[1], "Iterator")) return false;
-
-  // Stop if we're out of bounds.
-  double index = AS_NUM(args[1]);
-  if (index < 1 || index >= list->elements.count) RETURN_NULL;
-
-  // Otherwise, move to the next index (iterator is 1-based).
-  RETURN_NUM(index + 1);
+/* list_iterate - now returns Generator on first call (arg1 == null), then delegates to Generator.next via Wren contract */
+DEF_PRIMITIVE(list_iterate) {
+    if (IS_NULL(args[1])) {  // first call from Wren iterator protocol
+        WrenIterator* iter = NULL;
+        if (wrenIteratorCreate(vm, args[0], &iter) != 0) {
+            RETURN_ERROR("Failed to create list iterator");
+        }
+        // Create Generator foreign that owns the iterator (matches your existing Generator class)
+        ObjForeign* foreign = wrenNewForeign(vm, sizeof(WrenIterator*));
+        *(WrenIterator**)foreign->data = iter;
+        RETURN_OBJ(foreign);
+    } else {
+        // Subsequent calls are handled by Generator.iterate / iteratorValue in wren_core.wren
+        // We just return null to signal end (your falsy contract)
+        RETURN_NULL();
+    }
 }
 
 DEF_PRIMITIVE(list_iteratorValue)
@@ -529,52 +531,37 @@ DEF_PRIMITIVE(map_count)
   RETURN_NUM(AS_MAP(args[0])->count);
 }
 
-DEF_PRIMITIVE(map_iterate)
-{
-  ObjMap* map = AS_MAP(args[0]);
-
-  if (map->count == 0) RETURN_NULL;
-
-  // If we're starting the iteration, use neco iterator
-  if (IS_NULL(args[1]))
-  {
-    WrenIterator* iter = NULL;
-    if (wrenIteratorCreate(vm, args[0], &iter) != 0) {
-      RETURN_ERROR("Failed to create iterator");
-    }
-
-    WrenValue nextVal;
-    if (wrenIteratorNext(iter, &nextVal)) {
-      wrenIteratorRelease(iter);
-      RETURN_NUM(1);  // Return 1-based index for first element
+/* map_iterate - now returns Generator on first call (arg1 == null), then delegates to Generator.next via Wren contract */
+DEF_PRIMITIVE(map_iterate) {
+    if (IS_NULL(args[1])) {  // first call from Wren iterator protocol
+        WrenIterator* iter = NULL;
+        if (wrenIteratorCreate(vm, args[0], &iter) != 0) {
+            RETURN_ERROR("Failed to create map iterator");
+        }
+        // Create Generator foreign that owns the iterator (matches your existing Generator class)
+        ObjForeign* foreign = wrenNewForeign(vm, sizeof(WrenIterator*));
+        *(WrenIterator**)foreign->data = iter;
+        RETURN_OBJ(foreign);
     } else {
-      wrenIteratorRelease(iter);
-      RETURN_NULL;
+        // Subsequent calls are handled by Generator.iterate / iteratorValue in wren_core.wren
+        // We just return null to signal end (your falsy contract)
+        RETURN_NULL();
     }
-  }
+}
 
-  // Otherwise, start one past the last entry we stopped at.
-  if (!validateInt(vm, args[1], "Iterator")) return false;
-
-  double iterVal = AS_NUM(args[1]);
-  if (iterVal < 1) RETURN_NULL;
-  // Iterator is 1-based
-  uint32_t index = (uint32_t)(iterVal - 1);
-
-  if (index >= map->capacity) RETURN_NULL;
-
-  // Advance the iterator.
-  index++;
-
-  // Find a used entry, if any.
-  for (; index < map->capacity; index++)
-  {
-    // Return 1-based iterator (index + 1)
-    if (!IS_UNDEFINED(map->entries[index].key)) RETURN_NUM(index + 1);
-  }
-
-  // If we get here, walked all of the entries.
-  RETURN_NULL;
+/* map_keyIterate - identical pattern, uses mapKeyIteratorCoroutine under the hood */
+DEF_PRIMITIVE(map_keyIterate) {
+    if (IS_NULL(args[1])) {
+        WrenIterator* iter = NULL;
+        if (wrenIteratorCreate(vm, args[0], &iter) != 0) {
+            RETURN_ERROR("Failed to create map key iterator");
+        }
+        ObjForeign* foreign = wrenNewForeign(vm, sizeof(WrenIterator*));
+        *(WrenIterator**)foreign->data = iter;
+        RETURN_OBJ(foreign);
+    } else {
+        RETURN_NULL();
+    }
 }
 
 DEF_PRIMITIVE(map_remove)
@@ -963,45 +950,20 @@ DEF_PRIMITIVE(range_isInclusive)
 // Iterator -1 means index 0 (first value), -2 means index 1, etc.
 // This avoids precision loss from adding large offsets to floats
 
-DEF_PRIMITIVE(range_iterate)
-{
-  ObjRange* range = AS_RANGE(args[0]);
-
-  // Special case: empty range.
-  if (range->from == range->to && !range->isInclusive) RETURN_NULL;
-
-  double index;
-  if (IS_NULL(args[1]))
-  {
-    // Start at index 0 (encoded as -1)
-    index = 0;
-  }
-  else
-  {
-    if (!validateNum(vm, args[1], "Iterator")) return false;
-    // Decode: -1 -> 0, -2 -> 1, -3 -> 2, etc.
-    double encodedIndex = AS_NUM(args[1]);
-    index = -encodedIndex - 1;
-    index++; // Move to next index
-  }
-
-  // Calculate the actual value at this index
-  double value;
-  if (range->from < range->to)
-  {
-    value = range->from + index;
-    if (value > range->to) RETURN_NULL;
-  }
-  else
-  {
-    value = range->from - index;
-    if (value < range->to) RETURN_NULL;
-  }
-
-  if (!range->isInclusive && value == range->to) RETURN_NULL;
-
-  // Return encoded index: 0 -> -1, 1 -> -2, 2 -> -3, etc.
-  RETURN_NUM(-index - 1);
+/* range_iterate - same pattern */
+DEF_PRIMITIVE(range_iterate) {
+    if (IS_NULL(args[1])) {  // first call from Wren iterator protocol
+        WrenIterator* iter = NULL;
+        if (wrenIteratorCreate(vm, args[0], &iter) != 0) {
+            RETURN_ERROR("Failed to create range iterator");
+        }
+        ObjForeign* foreign = wrenNewForeign(vm, sizeof(WrenIterator*));
+        *(WrenIterator**)foreign->data = iter;
+        RETURN_OBJ(foreign);
+    } else {
+        // Subsequent calls are handled by Generator.iterate / iteratorValue in wren_core.wren
+        RETURN_NULL();
+    }
 }
 
 DEF_PRIMITIVE(range_iteratorValue)
@@ -1160,33 +1122,20 @@ DEF_PRIMITIVE(string_indexOf2)
   RETURN_NUM(index == UINT32_MAX ? -1 : (int)index);
 }
 
-DEF_PRIMITIVE(string_iterate)
-{
-  ObjString* string = AS_STRING(args[0]);
-
-  // If we're starting the iteration, return 1 (representing index 0).
-  if (IS_NULL(args[1]))
-  {
-    if (string->length == 0) RETURN_NULL;
-    RETURN_NUM(1);
-  }
-
-  if (!validateInt(vm, args[1], "Iterator")) return false;
-
-  double iterVal = AS_NUM(args[1]);
-  if (iterVal < 1) RETURN_NULL;
-  // Iterator is 1-based, convert to 0-based index
-  uint32_t index = (uint32_t)(iterVal - 1);
-
-  // Advance to the beginning of the next UTF-8 sequence.
-  do
-  {
-    index++;
-    if (index >= string->length) RETURN_NULL;
-  } while ((string->value[index] & 0xc0) == 0x80);
-
-  // Return 1-based iterator
-  RETURN_NUM(index + 1);
+/* string_iterate - same pattern (your wren_iterator.c will handle the TODO later) */
+DEF_PRIMITIVE(string_iterate) {
+    if (IS_NULL(args[1])) {  // first call from Wren iterator protocol
+        WrenIterator* iter = NULL;
+        if (wrenIteratorCreate(vm, args[0], &iter) != 0) {
+            RETURN_ERROR("Failed to create string iterator");
+        }
+        ObjForeign* foreign = wrenNewForeign(vm, sizeof(WrenIterator*));
+        *(WrenIterator**)foreign->data = iter;
+        RETURN_OBJ(foreign);
+    } else {
+        // Subsequent calls are handled by Generator.iterate / iteratorValue in wren_core.wren
+        RETURN_NULL();
+    }
 }
 
 DEF_PRIMITIVE(string_iterateByte)
