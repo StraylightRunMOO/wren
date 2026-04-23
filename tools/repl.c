@@ -26,10 +26,6 @@ static int history_index = 0;
 static char input_buffer[MAX_LINE_LENGTH * 10];
 static bool in_multiline = false;
 
-// Track defined variables for .vars command
-#define MAX_VARS 256
-static char defined_vars[MAX_VARS][256];
-static int var_count = 0;
 
 static void writeFn(WrenVM* vm, const char* text)
 {
@@ -66,16 +62,15 @@ static void printBanner(void)
   printf("╚═══════════════════════════════════════════════════════════╝\n");
   printf("\n");
   printf("Commands:\n");
-  printf("  .help       - Show this help message\n");
-  printf("  .quit       - Exit the REPL\n");
-  printf("  .clear      - Clear the screen\n");
-  printf("  .vars       - Show defined variables\n");
-  printf("  .reset      - Reset the VM (clear all state)\n");
-  printf("  .load <file> - Load and execute a Wren file\n");
+  printf("  .help     - Show this help message\n");
+  printf("  .quit     - Exit the REPL\n");
+  printf("  .clear    - Clear the screen\n");
+  printf("  .vars     - Show defined variables\n");
+  printf("  .reset    - Reset the VM (clear all state)\n");
   printf("\n");
   printf("Tips:\n");
   printf("  - End expressions with no semicolon to print the result\n");
-  printf("  - Use \"\"\" to start/end multi-line input blocks\n");
+  printf("  - Use { } for multi-line blocks\n");
   printf("  - Press Ctrl+C to cancel current input\n");
   printf("%s\n", COLOR_RESET);
 }
@@ -84,14 +79,13 @@ static void printHelp(void)
 {
   printf("%s", COLOR_INFO);
   printf("\nWren REPL Commands:\n");
-  printf("  .help       - Show this help message\n");
-  printf("  .quit       - Exit the REPL\n");
-  printf("  .exit       - Exit the REPL (alias for .quit)\n");
-  printf("  .clear      - Clear the screen\n");
-  printf("  .cls        - Clear the screen (alias for .clear)\n");
-  printf("  .vars       - Show defined variables in the current scope\n");
-  printf("  .reset      - Reset the VM and clear all state\n");
-  printf("  .load <file> - Load and execute a Wren file\n");
+  printf("  .help     - Show this help message\n");
+  printf("  .quit     - Exit the REPL\n");
+  printf("  .exit     - Exit the REPL (alias for .quit)\n");
+  printf("  .clear    - Clear the screen\n");
+  printf("  .cls      - Clear the screen (alias for .clear)\n");
+  printf("  .vars     - Show defined variables in the current scope\n");
+  printf("  .reset    - Reset the VM and clear all state\n");
   printf("\nExamples:\n");
   printf("  wren> 2 + 2\n");
   printf("  wren> var x = 10\n");
@@ -125,117 +119,48 @@ static void addToHistory(const char* line)
   }
 }
 
-static void trackVariable(const char* code)
+static bool isIncompleteBlock(const char* code)
 {
-  // Look for "var <name>" pattern
-  const char* p = code;
-  while (*p == ' ' || *p == '\t') p++;
+  int braceCount = 0;
+  int parenCount = 0;
+  int bracketCount = 0;
+  bool inString = false;
+  bool inComment = false;
 
-  if (strncmp(p, "var ", 4) == 0)
+  for (const char* p = code; *p; p++)
   {
-    p += 4;
-    while (*p == ' ' || *p == '\t') p++;
-
-    // Extract variable name
-    char varname[256] = {0};
-    int i = 0;
-    while (*p && ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
-                   (*p >= '0' && *p <= '9') || *p == '_') && i < 255)
+    if (inComment)
     {
-      varname[i++] = *p++;
+      if (*p == '\n') inComment = false;
+      continue;
     }
-    varname[i] = '\0';
 
-    if (strlen(varname) > 0)
+    if (*p == '/' && *(p + 1) == '/')
     {
-      // Check if already tracked
-      for (int j = 0; j < var_count; j++)
-      {
-        if (strcmp(defined_vars[j], varname) == 0)
-        {
-          return; // Already tracked
-        }
-      }
+      inComment = true;
+      continue;
+    }
 
-      // Add new variable
-      if (var_count < MAX_VARS)
-      {
-        strncpy(defined_vars[var_count], varname, 255);
-        defined_vars[var_count][255] = '\0';
-        var_count++;
-      }
+    if (*p == '"' && (p == code || *(p - 1) != '\\'))
+    {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    switch (*p)
+    {
+      case '{': braceCount++; break;
+      case '}': braceCount--; break;
+      case '(': parenCount++; break;
+      case ')': parenCount--; break;
+      case '[': bracketCount++; break;
+      case ']': bracketCount--; break;
     }
   }
-}
 
-static void clearVariables(void)
-{
-  var_count = 0;
-  for (int i = 0; i < MAX_VARS; i++)
-  {
-    defined_vars[i][0] = '\0';
-  }
-}
-
-static void showVariables(void)
-{
-  if (var_count == 0)
-  {
-    printf("%sNo variables defined%s\n", COLOR_INFO, COLOR_RESET);
-    return;
-  }
-
-  printf("%sDefined variables:%s\n", COLOR_INFO, COLOR_RESET);
-  for (int i = 0; i < var_count; i++)
-  {
-    printf("  %s%s%s\n", COLOR_OUTPUT, defined_vars[i], COLOR_RESET);
-  }
-}
-
-static char* loadFile(const char* filepath)
-{
-  FILE* f = fopen(filepath, "r");
-  if (!f)
-  {
-    return NULL;
-  }
-
-  fseek(f, 0, SEEK_END);
-  long size = ftell(f);
-  fseek(f, 0, SEEK_SET);
-
-  char* code = malloc(size + 1);
-  if (!code)
-  {
-    fclose(f);
-    return NULL;
-  }
-
-  fread(code, 1, size, f);
-  code[size] = '\0';
-  fclose(f);
-
-  return code;
-}
-
-static bool startsWithTripleQuote(const char* line)
-{
-  const char* p = line;
-  while (*p == ' ' || *p == '\t') p++;
-  return strncmp(p, "\"\"\"", 3) == 0;
-}
-
-static bool endsWithTripleQuote(const char* line)
-{
-  size_t len = strlen(line);
-  if (len < 3) return false;
-
-  // Check from end backwards, skipping whitespace
-  const char* p = line + len - 1;
-  while (p >= line && (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')) p--;
-
-  if (p - line < 2) return false;
-  return strncmp(p - 2, "\"\"\"", 3) == 0;
+  return braceCount > 0 || parenCount > 0 || bracketCount > 0;
 }
 
 static char* readLine(const char* prompt)
@@ -280,7 +205,7 @@ static bool handleCommand(const char* line, WrenVM** vm)
   }
   else if (strcmp(line, ".vars") == 0)
   {
-    showVariables();
+    printf("%s[Variable inspection not yet implemented]%s\n", COLOR_INFO, COLOR_RESET);
     return true;
   }
   else if (strcmp(line, ".reset") == 0)
@@ -294,32 +219,7 @@ static bool handleCommand(const char* line, WrenVM** vm)
     config.errorFn = errorFn;
     *vm = wrenNewVM(&config);
 
-    clearVariables();
     printf("%sVM reset complete%s\n", COLOR_INFO, COLOR_RESET);
-    return true;
-  }
-  else if (strncmp(line, ".load ", 6) == 0)
-  {
-    const char* filepath = line + 6;
-    while (*filepath == ' ' || *filepath == '\t') filepath++;
-
-    if (strlen(filepath) == 0)
-    {
-      printf("%sUsage: .load <filename>%s\n", COLOR_ERROR, COLOR_RESET);
-      return true;
-    }
-
-    char* code = loadFile(filepath);
-    if (!code)
-    {
-      fprintf(stderr, "%sError: Could not open file %s%s\n", COLOR_ERROR, filepath, COLOR_RESET);
-      return true;
-    }
-
-    printf("%sLoading %s...%s\n", COLOR_INFO, filepath, COLOR_RESET);
-    wrenInterpret(*vm, "repl", code);
-    free(code);
-
     return true;
   }
 
@@ -328,8 +228,6 @@ static bool handleCommand(const char* line, WrenVM** vm)
 
 static void executeCode(WrenVM* vm, const char* code)
 {
-  // Track variable definitions
-  trackVariable(code);
 
   // Check if it's a simple expression (no semicolon, no keywords that make it a statement)
   bool isExpression = true;
@@ -405,7 +303,7 @@ int main(int argc, char* argv[])
       fclose(f);
 
       printf("%sExecuting %s...%s\n\n", COLOR_INFO, argv[1], COLOR_RESET);
-      wrenInterpret(vm, "repl", code);
+      wrenInterpret(vm, argv[1], code);
       free(code);
 
       printf("\n");
@@ -446,42 +344,27 @@ int main(int argc, char* argv[])
       continue;
     }
 
-    // Check for triple-quote multiline mode
-    if (!in_multiline && startsWithTripleQuote(line))
-    {
-      in_multiline = true;
-      input_buffer[0] = '\0';  // Start fresh
-      continue;
-    }
-
-    if (in_multiline && endsWithTripleQuote(line))
-    {
-      // End of multiline input - execute accumulated buffer
-      in_multiline = false;
-      if (strlen(input_buffer) > 0)
-      {
-        addToHistory(input_buffer);
-        executeCode(vm, input_buffer);
-      }
-      input_buffer[0] = '\0';
-      continue;
-    }
-
     // Build up multi-line input
     if (in_multiline)
     {
-      if (strlen(input_buffer) > 0)
-      {
-        strcat(input_buffer, "\n");
-      }
+      strcat(input_buffer, "\n");
       strcat(input_buffer, line);
+    }
+    else
+    {
+      strncpy(input_buffer, line, sizeof(input_buffer) - 1);
+      input_buffer[sizeof(input_buffer) - 1] = '\0';
+    }
+
+    // Check if we need more lines
+    if (isIncompleteBlock(input_buffer))
+    {
+      in_multiline = true;
       continue;
     }
 
-    // Single line execution
-    strncpy(input_buffer, line, sizeof(input_buffer) - 1);
-    input_buffer[sizeof(input_buffer) - 1] = '\0';
-
+    // Execute the code
+    in_multiline = false;
     addToHistory(input_buffer);
     executeCode(vm, input_buffer);
 
