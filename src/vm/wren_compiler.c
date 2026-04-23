@@ -2050,7 +2050,7 @@ static void callMethod(Compiler* compiler, int numArgs, const char* name,
 }
 
 // Parses a function expression after the "fn" keyword.
-static void fnExpression(Compiler* compiler, bool canAssign)
+static void fnExpression(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   Compiler fnCompiler;
   initCompiler(&fnCompiler, compiler->parser, compiler, false);
@@ -2229,13 +2229,13 @@ static void loadCoreVariable(Compiler* compiler, const char* name)
 }
 
 // A parenthesized expression.
-static void grouping(Compiler* compiler, bool canAssign)
+static void grouping(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   expression(compiler);
   consume(compiler, TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-static void call(Compiler* compiler, bool allowAssignment)
+static void call(Compiler* compiler, bool WREN_MAYBE_UNUSED allowAssignment)
 {
   // An infix parenthesized call is syntax sugar for invoking the "call" method
   // on the left-hand side.
@@ -2256,7 +2256,7 @@ static void call(Compiler* compiler, bool allowAssignment)
 }
 
 // A list literal.
-static void list(Compiler* compiler, bool canAssign)
+static void list(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   // Instantiate a new list.
   loadCoreVariable(compiler, "List");
@@ -2281,7 +2281,7 @@ static void list(Compiler* compiler, bool canAssign)
 }
 
 // A map literal.
-static void map(Compiler* compiler, bool canAssign)
+static void map(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   // Instantiate a new map.
   loadCoreVariable(compiler, "Map");
@@ -2312,7 +2312,7 @@ static void map(Compiler* compiler, bool canAssign)
 }
 
 // Unary operators like `-foo`.
-static void unaryOp(Compiler* compiler, bool canAssign)
+static void unaryOp(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   GrammarRule* rule = getRule(compiler->parser->previous.type);
 
@@ -2325,7 +2325,7 @@ static void unaryOp(Compiler* compiler, bool canAssign)
   callMethod(compiler, 0, rule->name, 1);
 }
 
-static void boolean(Compiler* compiler, bool canAssign)
+static void boolean(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   emitOp(compiler,
       compiler->parser->previous.type == TOKEN_FALSE ? CODE_FALSE : CODE_TRUE);
@@ -2525,19 +2525,19 @@ static void name(Compiler* compiler, bool canAssign)
   bareName(compiler, canAssign, variable);
 }
 
-static void null(Compiler* compiler, bool canAssign)
+static void null(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   emitOp(compiler, CODE_NULL);
 }
 
 // A number or string literal.
-static void literal(Compiler* compiler, bool canAssign)
+static void literal(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   emitConstant(compiler, compiler->parser->previous.value);
 }
 
 // Compiles an Object Number like #123.
-static void objectNumber(Compiler* compiler, bool canAssign)
+static void objectNumber(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   // Check if callback is configured
   if (compiler->parser->vm->config.objectNumberFn == NULL)
@@ -2571,7 +2571,7 @@ static void objectNumber(Compiler* compiler, bool canAssign)
 // is compiled roughly like:
 //
 //     ["a ", b + c, " d"].join()
-static void stringInterpolation(Compiler* compiler, bool canAssign)
+static void stringInterpolation(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   // Instantiate a new list.
   loadCoreVariable(compiler, "List");
@@ -2630,7 +2630,7 @@ static void super_(Compiler* compiler, bool canAssign)
   }
 }
 
-static void this_(Compiler* compiler, bool canAssign)
+static void this_(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   if (getEnclosingClass(compiler) == NULL)
   {
@@ -2671,7 +2671,7 @@ static void dot(Compiler* compiler, bool canAssign)
   namedCall(compiler, canAssign, CODE_CALL_0);
 }
 
-static void and_(Compiler* compiler, bool canAssign)
+static void and_(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   ignoreNewlines(compiler);
 
@@ -2681,7 +2681,7 @@ static void and_(Compiler* compiler, bool canAssign)
   patchJump(compiler, jump);
 }
 
-static void or_(Compiler* compiler, bool canAssign)
+static void or_(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   ignoreNewlines(compiler);
 
@@ -2691,7 +2691,7 @@ static void or_(Compiler* compiler, bool canAssign)
   patchJump(compiler, jump);
 }
 
-static void conditional(Compiler* compiler, bool canAssign)
+static void conditional(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   // Ignore newline after '?'.
   ignoreNewlines(compiler);
@@ -2718,7 +2718,7 @@ static void conditional(Compiler* compiler, bool canAssign)
   patchJump(compiler, elseJump);
 }
 
-void infixOp(Compiler* compiler, bool canAssign)
+void infixOp(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   GrammarRule* rule = getRule(compiler->parser->previous.type);
 
@@ -2747,7 +2747,7 @@ void infixSignature(Compiler* compiler, Signature* signature)
 }
 
 // Compiles a method signature for an unary operator (i.e. "!").
-void unarySignature(Compiler* compiler, Signature* signature)
+void unarySignature(Compiler* WREN_MAYBE_UNUSED compiler, Signature* signature)
 {
   // Do nothing. The name is already complete.
   signature->type = SIG_GETTER;
@@ -3458,7 +3458,7 @@ static void defineMethod(Compiler* compiler, Variable classVariable,
 // Reports an error if a method with that signature is already declared.
 // Returns the symbol for the method.
 static int declareMethod(Compiler* compiler, Signature* signature,
-                         const char* name, int length)
+                         const char* name, int WREN_MAYBE_UNUSED length)
 {
   int symbol = signatureSymbol(compiler, signature);
   

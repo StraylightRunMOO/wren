@@ -33,7 +33,7 @@
 // the actual type signature of a primitive function and makes it clear which C
 // functions are invoked as primitives.
 #define DEF_PRIMITIVE(name)                                                    \
-    static bool prim_##name(WrenVM* vm, Value* args)
+    static bool prim_##name(WrenVM* WREN_MAYBE_UNUSED vm, Value* WREN_MAYBE_UNUSED args)
 
 #define RETURN_VAL(value)                                                      \
     do                                                                         \

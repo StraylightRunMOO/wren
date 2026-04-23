@@ -70,9 +70,9 @@ const char* wrenMetaSource()
   return metaModuleSource;
 }
 
-WrenForeignMethodFn wrenMetaBindForeignMethod(WrenVM* vm,
-                                              const char* className,
-                                              bool isStatic,
+WrenForeignMethodFn wrenMetaBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
+                                              const char* WREN_MAYBE_UNUSED className,
+                                              bool WREN_MAYBE_UNUSED isStatic,
                                               const char* signature)
 {
   // There is only one foreign method in the meta module.

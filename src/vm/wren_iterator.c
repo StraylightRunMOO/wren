@@ -20,7 +20,7 @@ static void unlinkIterator(WrenVM* vm, WrenIterator* it) {
     it->prev = it->next = NULL;
 }
 
-static void listIteratorCoroutine(int argc, void** argv) {
+static void listIteratorCoroutine(int WREN_MAYBE_UNUSED argc, void** argv) {
     WrenValue listVal = *(WrenValue*)argv[0];
     ObjList* list = AS_LIST(listVal);
     for (int i = 0; i < list->elements.count; ++i) {
@@ -28,7 +28,7 @@ static void listIteratorCoroutine(int argc, void** argv) {
     }
 }
 
-static void mapKeyIteratorCoroutine(int argc, void** argv) {
+static void mapKeyIteratorCoroutine(int WREN_MAYBE_UNUSED argc, void** argv) {
     WrenValue mapVal = *(WrenValue*)argv[0];
     ObjMap* map = AS_MAP(mapVal);
     for (uint32_t i = 0; i < map->capacity; ++i) {
@@ -37,7 +37,7 @@ static void mapKeyIteratorCoroutine(int argc, void** argv) {
     }
 }
 
-static void rangeIteratorCoroutine(int argc, void** argv) {
+static void rangeIteratorCoroutine(int WREN_MAYBE_UNUSED argc, void** argv) {
     WrenValue rangeVal = *(WrenValue*)argv[0];
     ObjRange* range = AS_RANGE(rangeVal);
 
@@ -60,7 +60,7 @@ static void rangeIteratorCoroutine(int argc, void** argv) {
     }
 }
 
-static void stringIteratorCoroutine(int argc, void** argv) {
+static void stringIteratorCoroutine(int WREN_MAYBE_UNUSED argc, void** argv) {
     WrenValue strVal = *(WrenValue*)argv[0];
     ObjString* string = AS_STRING(strVal);
 

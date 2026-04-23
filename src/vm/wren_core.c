@@ -1383,7 +1383,7 @@ WrenForeignMethodFn wrenCoreBindForeignMethod(const char* module, const char* cl
 }
 
 // Binds foreign class allocate/finalize for the core module
-WrenForeignClassMethods wrenCoreBindForeignClass(WrenVM* vm, const char* className)
+WrenForeignClassMethods wrenCoreBindForeignClass(WrenVM* WREN_MAYBE_UNUSED vm, const char* className)
 {
     WrenForeignClassMethods methods;
     methods.allocate = NULL;
