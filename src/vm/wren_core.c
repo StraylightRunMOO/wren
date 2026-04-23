@@ -1304,6 +1304,146 @@ DEF_PRIMITIVE(system_writeString)
   RETURN_VAL(args[1]);
 }
 
+// Parse arity/getter/setter from a Wren method signature string.
+// Shared by system_inspect and the reflection module.
+static void inspectParseSignature(const char* name, int nameLen,
+                                  int* arity, bool* isGetter, bool* isSetter)
+{
+  *arity = 0; *isGetter = false; *isSetter = false;
+  const char* paren   = strchr(name, '(');
+  const char* bracket = strchr(name, '[');
+  if (!paren && !bracket) {
+    if (nameLen > 0 && name[nameLen - 1] == '=') { *isSetter = true; *arity = 1; }
+    else { *isGetter = true; }
+    return;
+  }
+  const char* open = (bracket && (!paren || bracket < paren)) ? bracket : paren;
+  char close_ch = (*open == '(') ? ')' : ']';
+  int underscores = 0;
+  for (const char* p = open + 1; *p && *p != close_ch; p++)
+    if (*p == '_') underscores++;
+  const char* closePos = strchr(open, close_ch);
+  bool hasSuffix = closePos && *(closePos + 1) == '=';
+  if (*open == '[' && hasSuffix) { *isSetter = true; *arity = underscores + 1; }
+  else { *arity = underscores; }
+}
+
+static const char* inspectMethodType(MethodType t)
+{
+  switch (t) {
+    case METHOD_PRIMITIVE:     return "primitive";
+    case METHOD_FOREIGN:       return "foreign";
+    case METHOD_BLOCK:         return "block";
+    case METHOD_FUNCTION_CALL: return "function_call";
+    default:                   return "none";
+  }
+}
+
+// Build a methods Map from a class's method table; isStaticClass marks all entries as static.
+static void inspectFillMethods(WrenVM* vm, ObjMap* methods, ObjClass* cls, bool isStatic)
+{
+  SymbolTable* symbols = &vm->methodNames;
+  for (int i = 0; i < cls->methods.count && i < symbols->count; i++) {
+    Method* m = &cls->methods.data[i];
+    if (m->type == METHOD_NONE) continue;
+    ObjString* sigStr = symbols->data[i];
+    int arity; bool isGetter, isSetter;
+    inspectParseSignature(sigStr->value, sigStr->length, &arity, &isGetter, &isSetter);
+
+    ObjMap* info = wrenNewMap(vm);
+    wrenPushRoot(vm, (Obj*)info);
+    wrenMapSet(vm, info, OBJ_VAL(wrenNewString(vm, "arity")),    NUM_VAL(arity));
+    wrenMapSet(vm, info, OBJ_VAL(wrenNewString(vm, "isGetter")), BOOL_VAL(isGetter));
+    wrenMapSet(vm, info, OBJ_VAL(wrenNewString(vm, "isSetter")), BOOL_VAL(isSetter));
+    wrenMapSet(vm, info, OBJ_VAL(wrenNewString(vm, "isStatic")), BOOL_VAL(isStatic));
+    wrenMapSet(vm, info, OBJ_VAL(wrenNewString(vm, "type")),
+               OBJ_VAL(wrenNewString(vm, inspectMethodType(m->type))));
+    wrenMapSet(vm, methods, OBJ_VAL(sigStr), OBJ_VAL(info));
+    wrenPopRoot(vm);
+  }
+}
+
+static const char* inspectTypeName(WrenVM* vm, Value val)
+{
+  if (IS_BOOL(val))     return "Bool";
+  if (IS_NULL(val))     return "Null";
+  if (IS_NUM(val))      return "Num";
+  if (IS_STRING(val))   return "String";
+  if (IS_LIST(val))     return "List";
+  if (IS_MAP(val))      return "Map";
+  if (IS_RANGE(val))    return "Range";
+  if (IS_CLOSURE(val) || IS_FN(val)) return "Fn";
+  if (IS_FIBER(val))    return "Fiber";
+  if (IS_FOREIGN(val))  return "foreign";
+  if (IS_CLASS(val))    return AS_CLASS(val)->name->value;
+  if (IS_INSTANCE(val)) return AS_INSTANCE(val)->obj.classObj->name->value;
+  return "unknown";
+}
+
+static ObjClass* inspectClassOf(WrenVM* vm, Value val)
+{
+  if (IS_BOOL(val))              return vm->boolClass;
+  if (IS_NULL(val))              return vm->nullClass;
+  if (IS_NUM(val))               return vm->numClass;
+  if (IS_STRING(val))            return vm->stringClass;
+  if (IS_LIST(val))              return vm->listClass;
+  if (IS_MAP(val))               return vm->mapClass;
+  if (IS_RANGE(val))             return vm->rangeClass;
+  if (IS_CLOSURE(val)||IS_FN(val)) return vm->fnClass;
+  if (IS_FIBER(val))             return vm->fiberClass;
+  if (IS_CLASS(val))             return AS_CLASS(val);
+  if (IS_INSTANCE(val))          return AS_INSTANCE(val)->obj.classObj;
+  if (IS_FOREIGN(val))           return AS_OBJ(val)->classObj;
+  return NULL;
+}
+
+// System.inspect_(_) — returns a Map describing the value.
+DEF_PRIMITIVE(system_inspect)
+{
+  Value val = args[1];
+  bool isClass = IS_CLASS(val);
+  ObjClass* cls = inspectClassOf(vm, val);
+
+  ObjMap* result = wrenNewMap(vm);
+  wrenPushRoot(vm, (Obj*)result);
+
+  // "type" — the Wren type name of this value
+  wrenMapSet(vm, result, OBJ_VAL(wrenNewString(vm, "type")),
+             OBJ_VAL(wrenNewString(vm, inspectTypeName(vm, val))));
+
+  // "className" — name of the class (for an instance, the class it belongs to;
+  //               for a Class value, the class's own name)
+  const char* className = cls ? cls->name->value : "unknown";
+  wrenMapSet(vm, result, OBJ_VAL(wrenNewString(vm, "className")),
+             OBJ_VAL(wrenNewString(vm, className)));
+
+  // "isClass" — true when val itself is a Class object
+  wrenMapSet(vm, result, OBJ_VAL(wrenNewString(vm, "isClass")),
+             BOOL_VAL(isClass));
+
+  // "methods" — Map of signature -> { arity, isGetter, isSetter, isStatic, type }
+  ObjMap* methods = wrenNewMap(vm);
+  wrenPushRoot(vm, (Obj*)methods);
+  wrenMapSet(vm, result, OBJ_VAL(wrenNewString(vm, "methods")), OBJ_VAL(methods));
+
+  if (cls != NULL) {
+    if (isClass) {
+      // Inspecting a class: show both its static methods (on metaclass) and
+      // instance methods (on the class itself).
+      inspectFillMethods(vm, methods, cls->obj.classObj, true);
+      inspectFillMethods(vm, methods, cls, false);
+    } else {
+      // Inspecting an instance: show instance methods of its class.
+      inspectFillMethods(vm, methods, cls, false);
+    }
+  }
+
+  wrenPopRoot(vm); // methods
+  wrenPopRoot(vm); // result
+
+  RETURN_OBJ(result);
+}
+
 // Generator class implementation using neco coroutines
 
 // Allocator for Generator foreign class.
@@ -1653,6 +1793,7 @@ void wrenInitializeCore(WrenVM* vm)
   PRIMITIVE(systemClass->obj.classObj, "clock", system_clock);
   PRIMITIVE(systemClass->obj.classObj, "gc()", system_gc);
   PRIMITIVE(systemClass->obj.classObj, "writeString_(_)", system_writeString);
+  PRIMITIVE(systemClass->obj.classObj, "inspect_(_)", system_inspect);
 
   // While bootstrapping the core types and running the core module, a number
   // of string objects have been created, many of which were instantiated

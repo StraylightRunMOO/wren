@@ -3766,6 +3766,31 @@ static void classDefinition(Compiler* compiler, bool isForeign)
   popScope(compiler);
 }
 
+// Helper to import a single variable from a module
+static void importVariable(Compiler* compiler, const char* name, int length)
+{
+  // Define a string constant for the variable name.
+  int variableConstant = addConstant(compiler,
+        wrenNewStringLength(compiler->parser->vm, name, length));
+
+  // Synthesize a Token for the variable name so declareVariable can use it.
+  Token nameToken;
+  nameToken.type   = TOKEN_NAME;
+  nameToken.start  = name;
+  nameToken.length = length;
+  nameToken.line   = compiler->parser->previous.line;
+  nameToken.value  = UNDEFINED_VAL;
+
+  // Declare the variable in the current scope.
+  int slot = declareVariable(compiler, &nameToken);
+
+  // Load the variable from the other module.
+  emitShortArg(compiler, CODE_IMPORT_VARIABLE, variableConstant);
+
+  // Store the result in the variable here.
+  defineVariable(compiler, slot);
+}
+
 // Compiles an "import" statement.
 //
 // An import compiles to a series of instructions. Given:
@@ -3780,10 +3805,18 @@ static void classDefinition(Compiler* compiler, bool isForeign)
 // * Emit an IMPORT_VARIABLE instruction to load the variable's value from the
 //   other module.
 // * Compile the code to store that value in the variable in this scope.
+//
+// New features:
+//   import "math"              - Imports default export (requires resolveDefaultExportFn)
+//   import "math" for *        - Wildcard import (requires resolveExportsFn)
+//   import "math" for Bar, Baz - Regular import
 static void import(Compiler* compiler)
 {
   ignoreNewlines(compiler);
   consume(compiler, TOKEN_STRING, "Expect a string after 'import'.");
+  
+  // Extract module name for callback lookups
+  const char* moduleName = AS_CSTRING(compiler->parser->previous.value);
   int moduleConstant = addConstant(compiler, compiler->parser->previous.value);
 
   // Load the module.
@@ -3793,7 +3826,49 @@ static void import(Compiler* compiler)
   emitOp(compiler, CODE_POP);
   
   // The for clause is optional.
-  if (!match(compiler, TOKEN_FOR)) return;
+  if (!match(compiler, TOKEN_FOR))
+  {
+    // No 'for' clause - try to import the default export
+    WrenResolveDefaultExportFn resolveDefault = compiler->parser->vm->config.resolveDefaultExportFn;
+    if (resolveDefault != NULL)
+    {
+      const char* defaultExport = resolveDefault(compiler->parser->vm, moduleName);
+      if (defaultExport != NULL)
+      {
+        importVariable(compiler, defaultExport, (int)strlen(defaultExport));
+      }
+    }
+    // If no default export or no resolver, just load the module without importing anything
+    // (this allows side-effect-only imports)
+    return;
+  }
+
+  ignoreNewlines(compiler);
+  
+  // Check for wildcard import
+  if (match(compiler, TOKEN_STAR))
+  {
+    WrenResolveExportsFn resolveExports = compiler->parser->vm->config.resolveExportsFn;
+    if (resolveExports == NULL)
+    {
+      error(compiler, "Wildcard imports require resolveExportsFn to be set.");
+      return;
+    }
+    
+    const char** exports = resolveExports(compiler->parser->vm, moduleName);
+    if (exports == NULL)
+    {
+      error(compiler, "Could not resolve exports for module.");
+      return;
+    }
+    
+    // Import all exports
+    for (int i = 0; exports[i] != NULL; i++)
+    {
+      importVariable(compiler, exports[i], (int)strlen(exports[i]));
+    }
+    return;
+  }
 
   // Compile the comma-separated list of variables to import.
   do

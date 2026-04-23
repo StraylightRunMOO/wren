@@ -76,6 +76,15 @@ typedef void (*WrenFinalizerFn)(void* data);
 // If this callback is NULL, Object Numbers will cause a compilation error.
 typedef void (*WrenObjectNumberFn)(WrenVM* vm, int64_t value);
 
+// Returns the default export name for a module (e.g., "Math" for "math").
+// Returns NULL if the module has no default export.
+typedef const char* (*WrenResolveDefaultExportFn)(WrenVM* vm, const char* name);
+
+// Returns a NULL-terminated array of all export names for a module.
+// Used for wildcard imports (e.g., `import "math" for *`).
+// Returns NULL if the module is not found.
+typedef const char** (*WrenResolveExportsFn)(WrenVM* vm, const char* name);
+
 // Gives the host a chance to canonicalize the imported module name,
 // potentially taking into account the (previously resolved) name of the module
 // that contains the import. Typically, this is used to implement relative
@@ -250,6 +259,26 @@ typedef struct
   //
   // If this is NULL, Object Numbers will cause a compilation error.
   WrenObjectNumberFn objectNumberFn;
+
+  // The callback Wren uses to resolve the default export for a module.
+  //
+  // When an import statement has no 'for' clause (e.g., `import "math"`),
+  // this function is called to determine which variable to import by default.
+  // It should return the name of the default export (e.g., "Math" for "math"),
+  // or NULL if the module has no default export.
+  //
+  // If this is NULL, imports without 'for' clauses will cause a compilation error.
+  WrenResolveDefaultExportFn resolveDefaultExportFn;
+
+  // The callback Wren uses to resolve all exports for wildcard imports.
+  //
+  // When an import statement uses '*' (e.g., `import "math" for *`),
+  // this function is called to get the list of all public exports from the module.
+  // It should return a NULL-terminated array of export names.
+  // The returned array should remain valid for the duration of the import.
+  //
+  // If this is NULL, wildcard imports will cause a compilation error.
+  WrenResolveExportsFn resolveExportsFn;
 
   // The number of bytes Wren will allocate before triggering the first garbage
   // collection.

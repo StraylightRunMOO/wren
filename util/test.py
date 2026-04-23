@@ -15,6 +15,8 @@ import platform
 
 parser = ArgumentParser()
 parser.add_argument('--suffix', default='')
+parser.add_argument('--verbose', '-v', action='store_true', 
+                    help='Print each test on its own line instead of overwriting')
 parser.add_argument('suite', nargs='?')
 
 args = parser.parse_args(sys.argv[1:])
@@ -331,13 +333,19 @@ def walk(dir, callback, ignored=None):
 
 
 def print_line(line=None):
-  # Erase the line.
-  print('\033[2K', end='')
-  # Move the cursor to the beginning.
-  print('\r', end='')
-  if line:
-    print(line, end='')
-    sys.stdout.flush()
+  if args.verbose:
+    # In verbose mode, print each line normally
+    if line:
+      print(line)
+  else:
+    # Interactive mode: overwrite the current line
+    # Erase the line.
+    print('\033[2K', end='')
+    # Move the cursor to the beginning.
+    print('\r', end='')
+    if line:
+      print(line, end='')
+      sys.stdout.flush()
 
 
 def run_script(app, path, type):
@@ -400,6 +408,9 @@ def run_example(path):
 
   # This one is annoyingly slow.
   if "skynet" in path: return
+  
+  # Skip stdlib demo - it's a showcase not a test
+  if "stdlib/demo" in path: return
 
   run_script(WREN_APP, path, "example")
 

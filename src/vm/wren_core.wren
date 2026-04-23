@@ -517,6 +517,11 @@ class System {
       writeString_("[invalid toString]")
     }
   }
+
+  // Returns a Map describing obj: "type", "className", "isClass", "methods".
+  // Each entry in "methods" is a Map with "arity", "isGetter", "isSetter",
+  // "isStatic", and "type" ("primitive", "foreign", "block").
+  static inspect(obj) { inspect_(obj) }
 }
 
 class ClassAttributes {

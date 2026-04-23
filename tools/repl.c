@@ -7,6 +7,15 @@
 #include <stdbool.h>
 #include "wren.h"
 
+// Forward declarations for stdlib functions (avoids pulling in internal VM headers)
+const char*  wrenStdlibLoadModule(const char* name);
+const char*  wrenStdlibGetDefaultExport(const char* name);
+const char** wrenStdlibGetExports(const char* name);
+WrenForeignMethodFn wrenStdlibBindForeign(WrenVM* vm, const char* module,
+    const char* className, bool isStatic, const char* signature);
+WrenForeignClassMethods wrenStdlibBindForeignClass(WrenVM* vm,
+    const char* module, const char* className);
+
 #define MAX_LINE_LENGTH 4096
 #define HISTORY_SIZE 100
 
@@ -62,11 +71,12 @@ static void printBanner(void)
   printf("╚═══════════════════════════════════════════════════════════╝\n");
   printf("\n");
   printf("Commands:\n");
-  printf("  .help     - Show this help message\n");
-  printf("  .quit     - Exit the REPL\n");
-  printf("  .clear    - Clear the screen\n");
-  printf("  .vars     - Show defined variables\n");
-  printf("  .reset    - Reset the VM (clear all state)\n");
+  printf("  .help            - Show this help message\n");
+  printf("  .quit            - Exit the REPL\n");
+  printf("  .clear           - Clear the screen\n");
+  printf("  .vars            - List variables defined in the REPL session\n");
+  printf("  .inspect <name>  - Show class, methods, and type info for <name>\n");
+  printf("  .reset           - Reset the VM (clear all state)\n");
   printf("\n");
   printf("Tips:\n");
   printf("  - End expressions with no semicolon to print the result\n");
@@ -79,13 +89,12 @@ static void printHelp(void)
 {
   printf("%s", COLOR_INFO);
   printf("\nWren REPL Commands:\n");
-  printf("  .help     - Show this help message\n");
-  printf("  .quit     - Exit the REPL\n");
-  printf("  .exit     - Exit the REPL (alias for .quit)\n");
-  printf("  .clear    - Clear the screen\n");
-  printf("  .cls      - Clear the screen (alias for .clear)\n");
-  printf("  .vars     - Show defined variables in the current scope\n");
-  printf("  .reset    - Reset the VM and clear all state\n");
+  printf("  .help            - Show this help message\n");
+  printf("  .quit / .exit    - Exit the REPL\n");
+  printf("  .clear / .cls    - Clear the screen\n");
+  printf("  .vars            - List variables defined in the REPL session\n");
+  printf("  .inspect <name>  - Show type, class, and methods for a variable or class\n");
+  printf("  .reset           - Reset the VM and clear all state\n");
   printf("\nExamples:\n");
   printf("  wren> 2 + 2\n");
   printf("  wren> var x = 10\n");
@@ -185,6 +194,152 @@ static char* readLine(const char* prompt)
   return line;
 }
 
+static const char* replResolveModule(WrenVM* vm, const char* importer,
+                                     const char* module)
+{
+  (void)vm; (void)importer;
+  return module;
+}
+
+static void replLoadModuleComplete(WrenVM* vm, const char* module,
+                                   WrenLoadModuleResult result)
+{
+  (void)vm; (void)module;
+  if (result.source) free((void*)result.source);
+}
+
+static WrenLoadModuleResult replLoadModule(WrenVM* vm, const char* module)
+{
+  WrenLoadModuleResult result = {0};
+
+  // Try stdlib first.
+  const char* src = wrenStdlibLoadModule(module);
+  if (src != NULL) {
+    result.source = src;
+    return result;
+  }
+
+  // Fall back to file on disk (module name + ".wren").
+  char path[4096];
+  snprintf(path, sizeof(path), "%s.wren", module);
+  FILE* f = fopen(path, "r");
+  if (f) {
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char* buf = malloc(sz + 1);
+    fread(buf, 1, sz, f);
+    buf[sz] = '\0';
+    fclose(f);
+    result.source = buf;
+    result.onComplete = replLoadModuleComplete;
+  }
+  return result;
+}
+
+static WrenForeignMethodFn replBindForeignMethod(WrenVM* vm,
+    const char* module, const char* className, bool isStatic,
+    const char* signature)
+{
+  return wrenStdlibBindForeign(vm, module, className, isStatic, signature);
+}
+
+static WrenForeignClassMethods replBindForeignClass(WrenVM* vm,
+    const char* module, const char* className)
+{
+  return wrenStdlibBindForeignClass(vm, module, className);
+}
+
+static const char* replResolveDefaultExport(WrenVM* vm, const char* name)
+{
+  (void)vm;
+  return wrenStdlibGetDefaultExport(name);
+}
+
+static const char** replResolveExports(WrenVM* vm, const char* name)
+{
+  (void)vm;
+  return wrenStdlibGetExports(name);
+}
+
+static void replInitConfig(WrenConfiguration* config)
+{
+  wrenInitConfiguration(config);
+  config->writeFn                = writeFn;
+  config->errorFn                = errorFn;
+  config->resolveModuleFn        = replResolveModule;
+  config->loadModuleFn           = replLoadModule;
+  config->bindForeignMethodFn    = replBindForeignMethod;
+  config->bindForeignClassFn     = replBindForeignClass;
+  config->resolveDefaultExportFn = replResolveDefaultExport;
+  config->resolveExportsFn       = replResolveExports;
+}
+
+// Each command invocation gets a unique module name so imports/vars don't collide.
+static int g_cmdSeq = 0;
+
+static void cmdVars(WrenVM* vm)
+{
+  char mod[64];
+  snprintf(mod, sizeof(mod), "repl.cmd%d", g_cmdSeq++);
+
+  static const char* src =
+    "import \"meta\" for meta\n"
+    "var names = meta.getModuleVariables(\"repl\")\n"
+    "if (names == null || names.count == 0) {\n"
+    "  System.print(\"\x1b[90mNo variables defined.\x1b[0m\")\n"
+    "} else {\n"
+    "  for (name in names) {\n"
+    "    System.print(\"\x1b[90m%(name)\x1b[0m\")\n"
+    "  }\n"
+    "}\n";
+  wrenInterpret(vm, mod, src);
+}
+
+static void cmdInspect(WrenVM* vm, const char* name)
+{
+  char mod[64];
+  snprintf(mod, sizeof(mod), "repl.cmd%d", g_cmdSeq++);
+
+  char src[4096];
+  snprintf(src, sizeof(src),
+    "import \"meta\" for meta\n"
+    "import \"meta/reflection\" for reflection\n"
+    "var expr = meta.compileExpression(\"%s\")\n"
+    "var val  = expr == null ? null : expr.call()\n"
+    "if (val == null) {\n"
+    "  System.print(\"\x1b[31mCould not evaluate: %s\x1b[0m\")\n"
+    "} else {\n"
+    "  var isClass = val is Class\n"
+    "  var cls = isClass ? reflection.getClass(val.name) : reflection.classOf(val)\n"
+    "  if (cls == null) {\n"
+    "    System.print(\"\x1b[33m%s\x1b[0m : \x1b[36m%%(val.type.name)\x1b[0m\")\n"
+    "  } else {\n"
+    "    var tag = isClass ? \"class\" : \"instance of\"\n"
+    "    System.print(\"\x1b[33m%s\x1b[0m : \x1b[36m%%(tag) %%(cls.name)\x1b[0m\")\n"
+    "    var instMethods = []\n"
+    "    var staticMethods = []\n"
+    "    for (mname in cls.methods) {\n"
+    "      var mi = cls.methodInfo(mname)\n"
+    "      if (mi.isStatic) { staticMethods.add(mname) } else { instMethods.add(mname) }\n"
+    "    }\n"
+    "    instMethods.sort()\n"
+    "    staticMethods.sort()\n"
+    "    if (staticMethods.count > 0) {\n"
+    "      System.print(\"\x1b[90m  static:\x1b[0m\")\n"
+    "      for (m in staticMethods) { System.print(\"    \x1b[32m%%(m)\x1b[0m\") }\n"
+    "    }\n"
+    "    if (instMethods.count > 0) {\n"
+    "      System.print(\"\x1b[90m  instance:\x1b[0m\")\n"
+    "      for (m in instMethods) { System.print(\"    \x1b[32m%%(m)\x1b[0m\") }\n"
+    "    }\n"
+    "  }\n"
+    "}\n",
+    name, name, name, name);
+
+  wrenInterpret(vm, mod, src);
+}
+
 static bool handleCommand(const char* line, WrenVM** vm)
 {
   if (strcmp(line, ".help") == 0 || strcmp(line, ".h") == 0)
@@ -199,26 +354,32 @@ static bool handleCommand(const char* line, WrenVM** vm)
   }
   else if (strcmp(line, ".clear") == 0 || strcmp(line, ".cls") == 0)
   {
-    printf("\x1b[2J\x1b[H"); // Clear screen and move cursor to top
+    printf("\x1b[2J\x1b[H");
     printBanner();
     return true;
   }
   else if (strcmp(line, ".vars") == 0)
   {
-    printf("%s[Variable inspection not yet implemented]%s\n", COLOR_INFO, COLOR_RESET);
+    cmdVars(*vm);
+    return true;
+  }
+  else if (strncmp(line, ".inspect", 8) == 0 && (line[8] == ' ' || line[8] == '\t'))
+  {
+    const char* name = line + 9;
+    while (*name == ' ' || *name == '\t') name++;
+    if (*name == '\0')
+      printf("%sUsage: .inspect <name>%s\n", COLOR_INFO, COLOR_RESET);
+    else
+      cmdInspect(*vm, name);
     return true;
   }
   else if (strcmp(line, ".reset") == 0)
   {
     printf("%sResetting VM...%s\n", COLOR_INFO, COLOR_RESET);
     wrenFreeVM(*vm);
-
     WrenConfiguration config;
-    wrenInitConfiguration(&config);
-    config.writeFn = writeFn;
-    config.errorFn = errorFn;
+    replInitConfig(&config);
     *vm = wrenNewVM(&config);
-
     printf("%sVM reset complete%s\n", COLOR_INFO, COLOR_RESET);
     return true;
   }
@@ -278,10 +439,7 @@ int main(int argc, char* argv[])
 {
   // Initialize Wren VM
   WrenConfiguration config;
-  wrenInitConfiguration(&config);
-  config.writeFn = writeFn;
-  config.errorFn = errorFn;
-
+  replInitConfig(&config);
   WrenVM* vm = wrenNewVM(&config);
 
   // Print banner

@@ -1,6 +1,7 @@
 #include "./test.h"
 #include "./api/api_tests.h"
 #include "./api/object_number.h"
+#include "../src/std/wren_stdlib.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -12,6 +13,20 @@ static WrenVM* vm = NULL;
 //It is not a general purpose vm or REPL.
 //See wren-cli if you're looking for that.
 
+// Callback for default imports (e.g., `import "math"`)
+static const char* resolveDefaultExport(WrenVM* vm, const char* name)
+{
+  (void)vm;
+  return wrenStdlibGetDefaultExport(name);
+}
+
+// Callback for wildcard imports (e.g., `import "math" for *`)
+static const char** resolveExports(WrenVM* vm, const char* name)
+{
+  (void)vm;
+  return wrenStdlibGetExports(name);
+}
+
 static WrenVM* initVM(bool isAPITest)
 {
   WrenConfiguration config;
@@ -21,6 +36,8 @@ static WrenVM* initVM(bool isAPITest)
   config.loadModuleFn = readModule;
   config.writeFn = vm_write;
   config.errorFn = reportError;
+  config.resolveDefaultExportFn = resolveDefaultExport;
+  config.resolveExportsFn = resolveExports;
 
   if(isAPITest) {
     config.bindForeignClassFn = APITest_bindForeignClass;
