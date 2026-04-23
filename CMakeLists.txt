@@ -69,6 +69,28 @@ set(WREN_OPT_HEADERS
     src/optional/wren_opt_random.h
 )
 
+# Wren standard library modules
+set(WREN_STDLIB_SOURCES
+    src/std/wren_stdlib.c
+    src/std/io/io.c
+    src/std/strconv/strconv.c
+    src/std/time/time.c
+    src/std/math/math.c
+    src/std/math/random/random_module.c
+    src/std/strings/strings.c
+)
+
+set(WREN_STDLIB_HEADERS
+    src/std/wren_stdlib.h
+    src/std/io/io.h
+    src/std/strconv/strconv.h
+    src/std/time/time.h
+    src/std/math/math.h
+    src/std/math/random/random.h
+    src/std/math/random/random_module.h
+    src/std/strings/strings.h
+)
+
 # Public headers
 set(WREN_PUBLIC_HEADERS
     src/include/wren.h
@@ -81,6 +103,8 @@ add_library(wren STATIC
     ${WREN_VM_HEADERS}
     ${WREN_OPT_SOURCES}
     ${WREN_OPT_HEADERS}
+    ${WREN_STDLIB_SOURCES}
+    ${WREN_STDLIB_HEADERS}
     ${WREN_PUBLIC_HEADERS}
 )
 
@@ -91,6 +115,7 @@ target_include_directories(wren
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/vm
         ${CMAKE_CURRENT_SOURCE_DIR}/src/optional
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/std
         ${neco_SOURCE_DIR}
 )
 
@@ -106,6 +131,8 @@ add_library(wren_shared SHARED
     ${WREN_VM_HEADERS}
     ${WREN_OPT_SOURCES}
     ${WREN_OPT_HEADERS}
+    ${WREN_STDLIB_SOURCES}
+    ${WREN_STDLIB_HEADERS}
     ${WREN_PUBLIC_HEADERS}
 )
 
@@ -122,6 +149,7 @@ target_include_directories(wren_shared
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/vm
         ${CMAKE_CURRENT_SOURCE_DIR}/src/optional
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/std
         ${neco_SOURCE_DIR}
 )
 

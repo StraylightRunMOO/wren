@@ -18,6 +18,9 @@
 #if WREN_OPT_RANDOM
   #include "wren_opt_random.h"
 #endif
+#if WREN_OPT_STDLIB
+  #include "wren_stdlib.h"
+#endif
 
 #if WREN_DEBUG_TRACE_MEMORY || WREN_DEBUG_TRACE_GC
   #include <time.h>
@@ -345,6 +348,12 @@ static WrenForeignMethodFn findForeignMethod(WrenVM* vm,
       method = wrenRandomBindForeignMethod(vm, className, isStatic, signature);
     }
 #endif
+#if WREN_OPT_STDLIB
+    else if (wrenStdlibHasModule(moduleName))
+    {
+      method = wrenStdlibBindForeign(vm, moduleName, className, isStatic, signature);
+    }
+#endif
   }
 
   return method;
@@ -602,6 +611,13 @@ static void bindForeignClass(WrenVM* vm, ObjClass* classObj, ObjModule* module)
                                            classObj->name->value);
     }
 #endif
+#if WREN_OPT_STDLIB
+    else if (wrenStdlibHasModule(module->name->value))
+    {
+      methods = wrenStdlibBindForeignClass(vm, module->name->value,
+                                           classObj->name->value);
+    }
+#endif
   }
   
   Method method;
@@ -775,6 +791,11 @@ static Value importModule(WrenVM* vm, Value name)
 #endif
 #if WREN_OPT_RANDOM
     if (strcmp(nameString->value, "random") == 0) result.source = wrenRandomSource();
+#endif
+#if WREN_OPT_STDLIB
+    if (result.source == NULL) {
+      result.source = wrenStdlibLoadModule(nameString->value);
+    }
 #endif
   }
   

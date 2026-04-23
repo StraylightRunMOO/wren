@@ -55,6 +55,10 @@
   #define WREN_OPT_RANDOM 1
 #endif
 
+#ifndef WREN_OPT_STDLIB
+  #define WREN_OPT_STDLIB 1
+#endif
+
 // These flags are useful for debugging and hacking on Wren itself. They are not
 // intended to be used for production code. They default to off.
 
