@@ -139,6 +139,15 @@
   #define inline _inline
 #endif
 
+// Compiler-specific attribute to mark potentially unused parameters/variables.
+// This silences "unused parameter" warnings when a function argument is required
+// by the API but not used in a particular implementation.
+#if defined(__GNUC__) || defined(__clang__)
+  #define WREN_MAYBE_UNUSED __attribute__((unused))
+#else
+  #define WREN_MAYBE_UNUSED
+#endif
+
 // This is used to clearly mark flexible-sized arrays that appear at the end of
 // some dynamically-allocated structs, known as the "struct hack".
 #if __STDC_VERSION__ >= 199901L

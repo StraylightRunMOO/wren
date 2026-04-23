@@ -321,7 +321,7 @@ void wrenListInsert(WrenVM* vm, ObjList* list, Value value, uint32_t index)
   list->elements.data[index] = value;
 }
 
-int wrenListIndexOf(WrenVM* vm, ObjList* list, Value value)
+int wrenListIndexOf(WrenVM* WREN_MAYBE_UNUSED vm, ObjList* list, Value value)
 {
   int count = list->elements.count;
   for (int i = 0; i < count; i++)
@@ -1171,7 +1171,7 @@ static void blackenModule(WrenVM* vm, ObjModule* module)
   vm->bytesAllocated += sizeof(ObjModule);
 }
 
-static void blackenRange(WrenVM* vm, ObjRange* range)
+static void blackenRange(WrenVM* vm, ObjRange* WREN_MAYBE_UNUSED range)
 {
   // Keep track of how much memory is still in use.
   vm->bytesAllocated += sizeof(ObjRange);

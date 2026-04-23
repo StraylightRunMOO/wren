@@ -674,7 +674,7 @@ static void createClass(WrenVM* vm, int numFields, ObjModule* module)
   if (numFields == -1) bindForeignClass(vm, classObj, module);
 }
 
-static void createForeign(WrenVM* vm, ObjFiber* fiber, Value* stack)
+static void createForeign(WrenVM* vm, ObjFiber* WREN_MAYBE_UNUSED fiber, Value* stack)
 {
   ObjClass* classObj = AS_CLASS(stack[0]);
   ASSERT(classObj->numFields == -1, "Class must be a foreign class.");
@@ -758,7 +758,6 @@ static Value importModule(WrenVM* vm, Value name)
   wrenPushRoot(vm, AS_OBJ(name));
 
   WrenLoadModuleResult result = {0};
-  const char* source = NULL;
   
   // Let the host try to provide the module.
   if (vm->config.loadModuleFn != NULL)
@@ -1623,7 +1622,7 @@ Value wrenGetModuleVariable(WrenVM* vm, Value moduleName, Value variableName)
   return getModuleVariable(vm, module, variableName);
 }
 
-Value wrenFindVariable(WrenVM* vm, ObjModule* module, const char* name)
+Value wrenFindVariable(WrenVM* WREN_MAYBE_UNUSED vm, ObjModule* module, const char* name)
 {
   int symbol = wrenSymbolTableFind(&module->variableNames, name, strlen(name));
   return module->variables.data[symbol];
@@ -1721,7 +1720,7 @@ void wrenEnsureSlots(WrenVM* vm, int numSlots)
 }
 
 // Ensures that [slot] is a valid index into the API's stack of slots.
-static void validateApiSlot(WrenVM* vm, int slot)
+static void validateApiSlot(WrenVM* WREN_MAYBE_UNUSED vm, int WREN_MAYBE_UNUSED slot)
 {
   ASSERT(slot >= 0, "Slot cannot be negative.");
   ASSERT(slot < wrenGetSlotCount(vm), "Not that many slots.");
