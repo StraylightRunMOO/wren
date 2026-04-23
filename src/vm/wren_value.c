@@ -6,6 +6,7 @@
 #include "wren.h"
 #include "wren_value.h"
 #include "wren_vm.h"
+#include "wren_core.h"
 
 #if WREN_DEBUG_TRACE_MEMORY
   #include "wren_debug.h"
@@ -1104,11 +1105,12 @@ static void blackenFn(WrenVM* vm, ObjFn* fn)
 
 static void blackenForeign(WrenVM* vm, ObjForeign* foreign)
 {
-  // TODO: Keep track of how much memory the foreign object uses. We can store
-  // this in each foreign object, but it will balloon the size. We may not want
-  // that much overhead. One option would be to let the foreign class register
-  // a C function that returns a size for the object. That way the VM doesn't
-  // always have to explicitly store it.
+  // Generator objects store the iterable Value that must be kept alive
+  // while the neco coroutine holds raw C pointers into it.
+  if (vm->generatorClass != NULL &&
+      foreign->obj.classObj == vm->generatorClass) {
+    wrenGeneratorBlacken(vm, foreign);
+  }
 }
 
 static void blackenInstance(WrenVM* vm, ObjInstance* instance)

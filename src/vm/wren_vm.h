@@ -41,6 +41,11 @@ struct WrenVM
   ObjClass* objectClass;
   ObjClass* rangeClass;
   ObjClass* stringClass;
+  ObjClass* generatorClass;
+
+  // Head of the linked list of all live WrenIterator objects.
+  // Used to force-close generators before neco event loop shutdown.
+  struct WrenIterator* liveIterators;
 
   // The fiber that is currently running.
   ObjFiber* fiber;

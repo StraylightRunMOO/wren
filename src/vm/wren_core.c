@@ -15,9 +15,20 @@
 
 #include "wren_core.wren.inc"
 
-/* neco stack size for generators - conservative for Wren */
-static void wrenCoreInitNeco(void) {
-    neco_set_stack_size(32768);  // 32 KiB per generator coroutine
+// Layout of ObjForeign data for Generator objects.
+// 'iterable' is stored here so the GC can trace and keep it alive —
+// the neco coroutine holds a raw C pointer into the iterable's data.
+typedef struct {
+    WrenIterator* it;
+    Value iterable;
+} GeneratorData;
+
+// GC mark helper — called from blackenForeign when the foreign is a Generator.
+// Exposed so wren_value.c can call it without a circular dependency.
+void wrenGeneratorBlacken(WrenVM* vm, ObjForeign* foreign)
+{
+    GeneratorData* gd = (GeneratorData*)foreign->data;
+    wrenGrayValue(vm, gd->iterable);
 }
 
 DEF_PRIMITIVE(bool_not)
@@ -359,22 +370,25 @@ DEF_PRIMITIVE(list_insert)
   RETURN_VAL(args[2]);
 }
 
-/* list_iterate - now returns Generator on first call (arg1 == null), then delegates to Generator.next via Wren contract */
-DEF_PRIMITIVE(list_iterate) {
-    if (IS_NULL(args[1])) {  // first call from Wren iterator protocol
-        WrenIterator* iter = NULL;
-        if (wrenIteratorCreate(vm, args[0], &iter) != 0) {
-            RETURN_ERROR("Failed to create list iterator");
-        }
-        // Create Generator foreign that owns the iterator (matches your existing Generator class)
-        ObjForeign* foreign = wrenNewForeign(vm, sizeof(WrenIterator*));
-        *(WrenIterator**)foreign->data = iter;
-        RETURN_OBJ(foreign);
-    } else {
-        // Subsequent calls are handled by Generator.iterate / iteratorValue in wren_core.wren
-        // We just return null to signal end (your falsy contract)
-        RETURN_NULL();
-    }
+DEF_PRIMITIVE(list_iterate)
+{
+  ObjList* list = AS_LIST(args[0]);
+
+  // If we're starting the iteration, return 1 (representing index 0).
+  if (IS_NULL(args[1]))
+  {
+    if (list->elements.count == 0) RETURN_NULL;
+    RETURN_NUM(1);
+  }
+
+  if (!validateInt(vm, args[1], "Iterator")) return false;
+
+  // Stop if we're out of bounds.
+  double index = AS_NUM(args[1]);
+  if (index < 1 || index >= list->elements.count) RETURN_NULL;
+
+  // Otherwise, move to the next index (iterator is 1-based).
+  RETURN_NUM(index + 1);
 }
 
 DEF_PRIMITIVE(list_iteratorValue)
@@ -531,37 +545,40 @@ DEF_PRIMITIVE(map_count)
   RETURN_NUM(AS_MAP(args[0])->count);
 }
 
-/* map_iterate - now returns Generator on first call (arg1 == null), then delegates to Generator.next via Wren contract */
-DEF_PRIMITIVE(map_iterate) {
-    if (IS_NULL(args[1])) {  // first call from Wren iterator protocol
-        WrenIterator* iter = NULL;
-        if (wrenIteratorCreate(vm, args[0], &iter) != 0) {
-            RETURN_ERROR("Failed to create map iterator");
-        }
-        // Create Generator foreign that owns the iterator (matches your existing Generator class)
-        ObjForeign* foreign = wrenNewForeign(vm, sizeof(WrenIterator*));
-        *(WrenIterator**)foreign->data = iter;
-        RETURN_OBJ(foreign);
-    } else {
-        // Subsequent calls are handled by Generator.iterate / iteratorValue in wren_core.wren
-        // We just return null to signal end (your falsy contract)
-        RETURN_NULL();
-    }
-}
+DEF_PRIMITIVE(map_iterate)
+{
+  ObjMap* map = AS_MAP(args[0]);
 
-/* map_keyIterate - identical pattern, uses mapKeyIteratorCoroutine under the hood */
-DEF_PRIMITIVE(map_keyIterate) {
-    if (IS_NULL(args[1])) {
-        WrenIterator* iter = NULL;
-        if (wrenIteratorCreate(vm, args[0], &iter) != 0) {
-            RETURN_ERROR("Failed to create map key iterator");
-        }
-        ObjForeign* foreign = wrenNewForeign(vm, sizeof(WrenIterator*));
-        *(WrenIterator**)foreign->data = iter;
-        RETURN_OBJ(foreign);
-    } else {
-        RETURN_NULL();
-    }
+  if (map->count == 0) RETURN_NULL;
+
+  // If we're starting the iteration, start at the first used entry.
+  uint32_t index = 0;
+
+  // Otherwise, start one past the last entry we stopped at.
+  if (!IS_NULL(args[1]))
+  {
+    if (!validateInt(vm, args[1], "Iterator")) return false;
+
+    double iterVal = AS_NUM(args[1]);
+    if (iterVal < 1) RETURN_NULL;
+    // Iterator is 1-based
+    index = (uint32_t)(iterVal - 1);
+
+    if (index >= map->capacity) RETURN_NULL;
+
+    // Advance the iterator.
+    index++;
+  }
+
+  // Find a used entry, if any.
+  for (; index < map->capacity; index++)
+  {
+    // Return 1-based iterator (index + 1)
+    if (!IS_UNDEFINED(map->entries[index].key)) RETURN_NUM(index + 1);
+  }
+
+  // If we get here, walked all of the entries.
+  RETURN_NULL;
 }
 
 DEF_PRIMITIVE(map_remove)
@@ -946,24 +963,45 @@ DEF_PRIMITIVE(range_isInclusive)
   RETURN_BOOL(AS_RANGE(args[0])->isInclusive);
 }
 
-// Use negative indices to ensure iterator values are never 0 (falsy)
-// Iterator -1 means index 0 (first value), -2 means index 1, etc.
-// This avoids precision loss from adding large offsets to floats
+DEF_PRIMITIVE(range_iterate)
+{
+  ObjRange* range = AS_RANGE(args[0]);
 
-/* range_iterate - same pattern */
-DEF_PRIMITIVE(range_iterate) {
-    if (IS_NULL(args[1])) {  // first call from Wren iterator protocol
-        WrenIterator* iter = NULL;
-        if (wrenIteratorCreate(vm, args[0], &iter) != 0) {
-            RETURN_ERROR("Failed to create range iterator");
-        }
-        ObjForeign* foreign = wrenNewForeign(vm, sizeof(WrenIterator*));
-        *(WrenIterator**)foreign->data = iter;
-        RETURN_OBJ(foreign);
-    } else {
-        // Subsequent calls are handled by Generator.iterate / iteratorValue in wren_core.wren
-        RETURN_NULL();
-    }
+  // Special case: empty range.
+  if (range->from == range->to && !range->isInclusive) RETURN_NULL;
+
+  double index;
+  if (IS_NULL(args[1]))
+  {
+    // Start at index 0 (encoded as -1)
+    index = 0;
+  }
+  else
+  {
+    if (!validateNum(vm, args[1], "Iterator")) return false;
+    // Decode: -1 -> 0, -2 -> 1, -3 -> 2, etc.
+    double encodedIndex = AS_NUM(args[1]);
+    index = -encodedIndex - 1;
+    index++; // Move to next index
+  }
+
+  // Calculate the actual value at this index
+  double value;
+  if (range->from < range->to)
+  {
+    value = range->from + index;
+    if (value > range->to) RETURN_NULL;
+  }
+  else
+  {
+    value = range->from - index;
+    if (value < range->to) RETURN_NULL;
+  }
+
+  if (!range->isInclusive && value == range->to) RETURN_NULL;
+
+  // Return encoded index: 0 -> -1, 1 -> -2, 2 -> -3, etc.
+  RETURN_NUM(-index - 1);
 }
 
 DEF_PRIMITIVE(range_iteratorValue)
@@ -1122,20 +1160,33 @@ DEF_PRIMITIVE(string_indexOf2)
   RETURN_NUM(index == UINT32_MAX ? -1 : (int)index);
 }
 
-/* string_iterate - same pattern (your wren_iterator.c will handle the TODO later) */
-DEF_PRIMITIVE(string_iterate) {
-    if (IS_NULL(args[1])) {  // first call from Wren iterator protocol
-        WrenIterator* iter = NULL;
-        if (wrenIteratorCreate(vm, args[0], &iter) != 0) {
-            RETURN_ERROR("Failed to create string iterator");
-        }
-        ObjForeign* foreign = wrenNewForeign(vm, sizeof(WrenIterator*));
-        *(WrenIterator**)foreign->data = iter;
-        RETURN_OBJ(foreign);
-    } else {
-        // Subsequent calls are handled by Generator.iterate / iteratorValue in wren_core.wren
-        RETURN_NULL();
-    }
+DEF_PRIMITIVE(string_iterate)
+{
+  ObjString* string = AS_STRING(args[0]);
+
+  // If we're starting the iteration, return 1 (representing index 0).
+  if (IS_NULL(args[1]))
+  {
+    if (string->length == 0) RETURN_NULL;
+    RETURN_NUM(1);
+  }
+
+  if (!validateInt(vm, args[1], "Iterator")) return false;
+
+  double iterVal = AS_NUM(args[1]);
+  if (iterVal < 1) RETURN_NULL;
+  // Iterator is 1-based, convert to 0-based index
+  uint32_t index = (uint32_t)(iterVal - 1);
+
+  // Advance to the beginning of the next UTF-8 sequence.
+  do
+  {
+    index++;
+    if (index >= string->length) RETURN_NULL;
+  } while ((string->value[index] & 0xc0) == 0x80);
+
+  // Return 1-based iterator
+  RETURN_NUM(index + 1);
 }
 
 DEF_PRIMITIVE(string_iterateByte)
@@ -1255,27 +1306,35 @@ DEF_PRIMITIVE(system_writeString)
 
 // Generator class implementation using neco coroutines
 
-// Finalizer for Generator objects (called by GC)
-static void generatorFinalize(void* data)
+// Allocator for Generator foreign class.
+static void generatorAllocate(WrenVM* vm)
 {
-  WrenIterator* it = (WrenIterator*)data;
-  if (it != NULL) {
-    wrenIteratorRelease(it);
-  }
+  GeneratorData* gd = (GeneratorData*)wrenSetSlotNewForeign(vm, 0, 0,
+                                                            sizeof(GeneratorData));
+  gd->it = NULL;
+  gd->iterable = NULL_VAL;
 }
 
-// Foreign method wrapper for Generator.new(_)
-static void generatorNew(WrenVM* vm)
+// Finalizer for Generator objects (called by GC).
+// wrenIteratorReleaseAll handles normal cleanup; this is a safety net.
+static void generatorFinalize(void* data)
 {
-  // Slot 0 is the Generator class (receiver), slot 1 is the iterable argument
-  ObjClass* generatorClass = AS_CLASS(vm->apiStack[0]);
+  GeneratorData* gd = (GeneratorData*)data;
+  if (gd->it != NULL && gd->it->gen != NULL) {
+    neco_gen_close(gd->it->gen);
+    neco_gen_release(gd->it->gen);
+    gd->it->gen = NULL;
+  }
+  // WrenIterator struct leaks without a VM pointer — acceptable, see wrenIteratorReleaseAll.
+}
+
+// Foreign method: Generator.init_(obj) — creates the neco iterator.
+static void generatorInit(WrenVM* vm)
+{
+  ObjForeign* foreign = AS_FOREIGN(vm->apiStack[0]);
+  GeneratorData* gd = (GeneratorData*)foreign->data;
   Value iterable = vm->apiStack[1];
 
-  // Create the Generator foreign object
-  ObjForeign* foreign = wrenNewForeign(vm, generatorClass, sizeof(WrenIterator*));
-  WrenIterator** itPtr = (WrenIterator**)foreign->data;
-
-  // Create the iterator using neco
   WrenIterator* it = NULL;
   int result = wrenIteratorCreate(vm, iterable, &it);
   if (result != 0 || it == NULL) {
@@ -1283,58 +1342,59 @@ static void generatorNew(WrenVM* vm)
     return;
   }
 
-  *itPtr = it;
-  vm->apiStack[0] = OBJ_VAL(foreign);
+  gd->it = it;
+  gd->iterable = iterable;
 }
 
-// Foreign method wrapper for Generator.next()
+// Foreign method: Generator.next()
 static void generatorNext(WrenVM* vm)
 {
-  // Slot 0 is the Generator instance
   ObjForeign* foreign = AS_FOREIGN(vm->apiStack[0]);
-  WrenIterator** itPtr = (WrenIterator**)foreign->data;
+  GeneratorData* gd = (GeneratorData*)foreign->data;
 
-  if (*itPtr == NULL) {
-    vm->apiStack[0] = NULL_VAL;  // Already closed
+  if (gd->it == NULL) {
+    vm->apiStack[0] = NULL_VAL;
     return;
   }
 
   WrenValue nextVal;
-  int hasNext = wrenIteratorNext(*itPtr, &nextVal);
+  int hasNext = wrenIteratorNext(gd->it, &nextVal);
 
   if (hasNext) {
     vm->apiStack[0] = nextVal;
   } else {
-    // Iterator is done - clean up
-    wrenIteratorRelease(*itPtr);
-    *itPtr = NULL;
+    wrenIteratorRelease(vm, gd->it);
+    gd->it = NULL;
     vm->apiStack[0] = NULL_VAL;
   }
 }
 
-// Binds foreign methods for the core module (called for foreign methods declared
-// in wren_core.wren, e.g., Generator methods)
-WrenForeignMethodFn wrenCoreBindForeignMethod(WrenVM* vm, const char* className,
+// Binds foreign methods for the core module
+WrenForeignMethodFn wrenCoreBindForeignMethod(const char* module, const char* className,
                                               bool isStatic, const char* signature)
 {
-  (void)vm;
-
-  if (className == NULL || signature == NULL) return NULL;
-
-  // Generator class foreign methods
-  if (strcmp(className, "Generator") == 0)
-  {
-    if (isStatic && strcmp(signature, "new(_)") == 0)
-    {
-      return generatorNew;
+    if (module != NULL && strcmp(module, "core") == 0) {
+        if (strcmp(className, "Generator") == 0) {
+            if (!isStatic && strcmp(signature, "init_(_)") == 0) return generatorInit;
+            if (!isStatic && strcmp(signature, "next()") == 0) return generatorNext;
+        }
     }
-    if (!isStatic && strcmp(signature, "next()") == 0)
-    {
-      return generatorNext;
-    }
-  }
+    return NULL;
+}
 
-  return NULL;
+// Binds foreign class allocate/finalize for the core module
+WrenForeignClassMethods wrenCoreBindForeignClass(WrenVM* vm, const char* className)
+{
+    WrenForeignClassMethods methods;
+    methods.allocate = NULL;
+    methods.finalize = NULL;
+
+    if (strcmp(className, "Generator") == 0) {
+        methods.allocate = generatorAllocate;
+        methods.finalize = generatorFinalize;
+    }
+
+    return methods;
 }
 
 // Creates either the Object or Class class in the core module with [name].
@@ -1585,8 +1645,9 @@ void wrenInitializeCore(WrenVM* vm)
   PRIMITIVE(vm->rangeClass, "iteratorValue(_)", range_iteratorValue);
   PRIMITIVE(vm->rangeClass, "toString", range_toString);
 
-  // Generator class foreign methods are bound via wrenCoreBindForeignMethod
-  // when the foreign declarations in wren_core.wren are processed.
+  // Generator is a foreign class — its allocate/finalize/methods are bound
+  // via wrenCoreBindForeignClass and wrenCoreBindForeignMethod.
+  vm->generatorClass = AS_CLASS(wrenFindVariable(vm, coreModule, "Generator"));
 
   ObjClass* systemClass = AS_CLASS(wrenFindVariable(vm, coreModule, "System"));
   PRIMITIVE(systemClass->obj.classObj, "clock", system_clock);

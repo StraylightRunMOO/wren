@@ -10,6 +10,7 @@
 #include "wren_vm.h"
 
 #include "neco.h"
+#include "wren_iterator.h"
 
 #if WREN_OPT_META
   #include "wren_opt_meta.h"
@@ -318,7 +319,7 @@ static WrenForeignMethodFn findForeignMethod(WrenVM* vm,
 {
   WrenForeignMethodFn method = NULL;
   
-  if (vm->config.bindForeignMethodFn != NULL)
+  if (vm->config.bindForeignMethodFn != NULL && moduleName != NULL)
   {
     method = vm->config.bindForeignMethodFn(vm, moduleName, className, isStatic,
                                             signature);
@@ -330,7 +331,7 @@ static WrenForeignMethodFn findForeignMethod(WrenVM* vm,
     if (moduleName == NULL)
     {
       // Core module foreign methods
-      method = wrenCoreBindForeignMethod(vm, className, isStatic, signature);
+      method = wrenCoreBindForeignMethod("core", className, isStatic, signature);
     }
 #if WREN_OPT_META
     else if (strcmp(moduleName, "meta") == 0)
@@ -580,7 +581,7 @@ static void bindForeignClass(WrenVM* vm, ObjClass* classObj, ObjModule* module)
   
   // Check the optional built-in module first so the host can override it.
   
-  if (vm->config.bindForeignClassFn != NULL)
+  if (vm->config.bindForeignClassFn != NULL && module->name != NULL)
   {
     methods = vm->config.bindForeignClassFn(vm, module->name->value,
                                             classObj->name->value);
@@ -589,8 +590,13 @@ static void bindForeignClass(WrenVM* vm, ObjClass* classObj, ObjModule* module)
   // If the host didn't provide it, see if it's a built in optional module.
   if (methods.allocate == NULL && methods.finalize == NULL)
   {
+    if (module->name == NULL)
+    {
+      // Core module foreign classes
+      methods = wrenCoreBindForeignClass(vm, classObj->name->value);
+    }
 #if WREN_OPT_RANDOM
-    if (strcmp(module->name->value, "random") == 0)
+    else if (strcmp(module->name->value, "random") == 0)
     {
       methods = wrenRandomBindForeignClass(vm, module->name->value,
                                            classObj->name->value);
@@ -1548,6 +1554,10 @@ static void necoInterpretWrapper(int argc, void* argv[]) {
   ctx->vm->apiStack = NULL;
   
   ctx->result = runInterpreter(ctx->vm, fiber);
+
+  // Close all live neco generators before the neco event loop exits,
+  // otherwise neco_start will hang waiting for suspended coroutines.
+  wrenIteratorReleaseAll(ctx->vm);
 }
 
 WrenInterpretResult wrenInterpret(WrenVM* vm, const char* module,

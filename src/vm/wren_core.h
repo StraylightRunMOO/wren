@@ -25,4 +25,10 @@ void wrenInitializeCore(WrenVM* vm);
 WrenForeignMethodFn wrenCoreBindForeignMethod(const char* module, const char* className,
                                               bool isStatic, const char* signature);
 
+// Binds foreign class allocate/finalize for the core module
+WrenForeignClassMethods wrenCoreBindForeignClass(WrenVM* vm, const char* className);
+
+// GC mark callback for Generator foreign objects — grays the iterable value.
+void wrenGeneratorBlacken(WrenVM* vm, ObjForeign* foreign);
+
 #endif
