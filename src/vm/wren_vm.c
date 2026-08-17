@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <time.h>
+#ifdef __linux__
+  #include <sys/random.h>
+#endif
+
 #include "wren.h"
 #include "wren_common.h"
 #include "wren_compiler.h"
@@ -33,6 +38,19 @@
 int wrenGetVersionNumber() 
 { 
   return WREN_VERSION_NUMBER;
+}
+
+static uint32_t generateHashSeed(void)
+{
+  uint32_t seed;
+#ifdef __linux__
+  if (getrandom(&seed, sizeof(seed), 0) == sizeof(seed)) return seed;
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+  seed = arc4random();
+  return seed;
+#endif
+  seed = (uint32_t)time(NULL) ^ (uint32_t)((uintptr_t)&seed >> 4);
+  return seed;
 }
 
 void wrenInitConfiguration(WrenConfiguration* config)
@@ -79,12 +97,11 @@ WrenVM* wrenNewVM(WrenConfiguration* config)
     wrenInitConfiguration(&vm->config);
   }
 
-  // TODO: Should we allocate and free this during a GC?
   vm->grayCount = 0;
-  // TODO: Tune this.
-  vm->grayCapacity = 4;
+  vm->grayCapacity = 64;
   vm->gray = (Obj**)reallocate(NULL, vm->grayCapacity * sizeof(Obj*), userData);
   vm->nextGC = vm->config.initialHeapSize;
+  vm->hashSeed = generateHashSeed();
 
   wrenSymbolTableInit(&vm->methodNames);
 
@@ -461,7 +478,7 @@ static void methodNotFound(WrenVM* vm, ObjClass* classObj, int symbol)
 // Returns `NULL` if no module with that name has been loaded.
 static ObjModule* getModule(WrenVM* vm, Value name)
 {
-  Value moduleValue = wrenMapGet(vm->modules, name);
+  Value moduleValue = wrenMapGet(vm, vm->modules, name);
   return !IS_UNDEFINED(moduleValue) ? AS_MODULE(moduleValue) : NULL;
 }
 
@@ -752,7 +769,7 @@ static Value importModule(WrenVM* vm, Value name)
   name = resolveModule(vm, name);
   
   // If the module is already loaded, we don't need to do anything.
-  Value existing = wrenMapGet(vm->modules, name);
+  Value existing = wrenMapGet(vm, vm->modules, name);
   if (!IS_UNDEFINED(existing)) return existing;
 
   wrenPushRoot(vm, AS_OBJ(name));
@@ -2032,7 +2049,7 @@ bool wrenGetMapContainsKey(WrenVM* vm, int mapSlot, int keySlot)
   if (!validateKey(vm, key)) return false;
 
   ObjMap* map = AS_MAP(vm->apiStack[mapSlot]);
-  Value value = wrenMapGet(map, key);
+  Value value = wrenMapGet(vm, map, key);
 
   return !IS_UNDEFINED(value);
 }
@@ -2045,7 +2062,7 @@ void wrenGetMapValue(WrenVM* vm, int mapSlot, int keySlot, int valueSlot)
   ASSERT(IS_MAP(vm->apiStack[mapSlot]), "Slot must hold a map.");
 
   ObjMap* map = AS_MAP(vm->apiStack[mapSlot]);
-  Value value = wrenMapGet(map, vm->apiStack[keySlot]);
+  Value value = wrenMapGet(vm, map, vm->apiStack[keySlot]);
   if (IS_UNDEFINED(value)) {
     value = NULL_VAL;
   }

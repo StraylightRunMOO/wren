@@ -711,7 +711,7 @@ static inline bool wrenMapIsValidKey(Value arg);
 
 // Looks up [key] in [map]. If found, returns the value. Otherwise, returns
 // `UNDEFINED_VAL`.
-Value wrenMapGet(ObjMap* map, Value key);
+Value wrenMapGet(WrenVM* vm, ObjMap* map, Value key);
 
 // Associates [key] with [value] in [map].
 void wrenMapSet(WrenVM* vm, ObjMap* map, Value key, Value value);

@@ -124,6 +124,9 @@ struct WrenVM
   // Cached indices for <allocate> and <finalize> pseudo-methods.
   int allocateSymbol;
   int finalizeSymbol;
+
+  // Per-VM hash seed for randomizing Map key hashing (hash flooding defense).
+  uint32_t hashSeed;
 };
 
 // Default host allocator: Memento thread heap with a size-prefix header.

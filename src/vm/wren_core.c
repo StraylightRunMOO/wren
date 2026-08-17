@@ -513,7 +513,7 @@ DEF_PRIMITIVE(map_subscript)
   if (!validateKey(vm, args[1])) return false;
 
   ObjMap* map = AS_MAP(args[0]);
-  Value value = wrenMapGet(map, args[1]);
+  Value value = wrenMapGet(vm, map, args[1]);
   if (IS_UNDEFINED(value)) RETURN_NULL;
 
   RETURN_VAL(value);
@@ -550,7 +550,7 @@ DEF_PRIMITIVE(map_containsKey)
 {
   if (!validateKey(vm, args[1])) return false;
 
-  RETURN_BOOL(!IS_UNDEFINED(wrenMapGet(AS_MAP(args[0]), args[1])));
+  RETURN_BOOL(!IS_UNDEFINED(wrenMapGet(vm, AS_MAP(args[0]), args[1])));
 }
 
 DEF_PRIMITIVE(map_count)

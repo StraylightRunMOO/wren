@@ -373,11 +373,12 @@ ObjMap* wrenNewMap(WrenVM* vm)
   return map;
 }
 
-static inline uint32_t hashBits(uint64_t hash)
+static inline uint32_t hashBits(uint64_t hash, uint32_t seed)
 {
   // From v8's ComputeLongHash() which in turn cites:
   // Thomas Wang, Integer Hash Functions.
   // http://www.concentric.net/~Ttwang/tech/inthash.htm
+  hash ^= (uint64_t)seed;
   hash = ~hash + (hash << 18);  // hash = (hash << 18) - hash - 1;
   hash = hash ^ (hash >> 31);
   hash = hash * 21;  // hash = (hash + (hash << 2)) + (hash << 4);
@@ -387,22 +388,18 @@ static inline uint32_t hashBits(uint64_t hash)
   return (uint32_t)(hash & 0x3fffffff);
 }
 
-// Generates a hash code for [num].
-static inline uint32_t hashNumber(double num)
+static inline uint32_t hashNumber(double num, uint32_t seed)
 {
-  // Hash the raw bits of the value.
-  return hashBits(wrenDoubleToBits(num));
+  return hashBits(wrenDoubleToBits(num), seed);
 }
 
-// Generates a hash code for [object].
-static uint32_t hashObject(Obj* object)
+static uint32_t hashObject(Obj* object, uint32_t seed)
 {
   switch (object->type)
   {
     case OBJ_CLASS:
-      // Classes just use their name.
-      return hashObject((Obj*)((ObjClass*)object)->name);
-      
+      return hashObject((Obj*)((ObjClass*)object)->name, seed);
+
       // Allow bare (non-closure) functions so that we can use a map to find
       // existing constants in a function's constant table. This is only used
       // internally. Since user code never sees a non-closure function, they
@@ -410,13 +407,13 @@ static uint32_t hashObject(Obj* object)
     case OBJ_FN:
     {
       ObjFn* fn = (ObjFn*)object;
-      return hashNumber(fn->arity) ^ hashNumber(fn->code.count);
+      return hashNumber(fn->arity, seed) ^ hashNumber(fn->code.count, seed);
     }
 
     case OBJ_RANGE:
     {
       ObjRange* range = (ObjRange*)object;
-      return hashNumber(range->from) ^ hashNumber(range->to);
+      return hashNumber(range->from, seed) ^ hashNumber(range->to, seed);
     }
 
     case OBJ_STRING:
@@ -428,28 +425,23 @@ static uint32_t hashObject(Obj* object)
   }
 }
 
-// Generates a hash code for [value], which must be one of the built-in
-// immutable types: null, bool, class, num, range, or string.
-static uint32_t hashValue(Value value)
+static uint32_t hashValue(Value value, uint32_t seed)
 {
-  // TODO: We'll probably want to randomize this at some point.
-
 #if WREN_NAN_TAGGING
-  if (IS_OBJ(value)) return hashObject(AS_OBJ(value));
+  if (IS_OBJ(value)) return hashObject(AS_OBJ(value), seed);
 
-  // Hash the raw bits of the unboxed value.
-  return hashBits(value);
+  return hashBits(value, seed);
 #else
   switch (value.type)
   {
     case VAL_FALSE: return 0;
     case VAL_NULL:  return 1;
-    case VAL_NUM:   return hashNumber(AS_NUM(value));
+    case VAL_NUM:   return hashNumber(AS_NUM(value), seed);
     case VAL_TRUE:  return 2;
-    case VAL_OBJ:   return hashObject(AS_OBJ(value));
+    case VAL_OBJ:   return hashObject(AS_OBJ(value), seed);
     default:        UNREACHABLE();
   }
-  
+
   return 0;
 #endif
 }
@@ -460,14 +452,14 @@ static uint32_t hashValue(Value value)
 // returns `false` and points [result] to the entry where the key/value pair
 // should be inserted.
 static bool findEntry(MapEntry* entries, uint32_t capacity, Value key,
-                      MapEntry** result)
+                      uint32_t seed, MapEntry** result)
 {
   // If there is no entry array (an empty map), we definitely won't find it.
   if (capacity == 0) return false;
-  
+
   // Figure out where to insert it in the table. Use open addressing and
   // basic linear probing.
-  uint32_t startIndex = hashValue(key) % capacity;
+  uint32_t startIndex = hashValue(key, seed) % capacity;
   uint32_t index = startIndex;
   
   // If we pass a tombstone and don't end up finding the key, its entry will
@@ -524,12 +516,12 @@ static bool findEntry(MapEntry* entries, uint32_t capacity, Value key,
 //
 // Returns `true` if this is the first time [key] was added to the map.
 static bool insertEntry(MapEntry* entries, uint32_t capacity,
-                        Value key, Value value)
+                        Value key, Value value, uint32_t seed)
 {
   ASSERT(entries != NULL, "Should ensure capacity before inserting.");
-  
+
   MapEntry* entry;
-  if (findEntry(entries, capacity, key, &entry))
+  if (findEntry(entries, capacity, key, seed, &entry))
   {
     // Already present, so just replace the value.
     entry->value = value;
@@ -546,6 +538,8 @@ static bool insertEntry(MapEntry* entries, uint32_t capacity,
 // Updates [map]'s entry array to [capacity].
 static void resizeMap(WrenVM* vm, ObjMap* map, uint32_t capacity)
 {
+  uint32_t seed = vm->hashSeed;
+
   // Create the new empty hash table.
   MapEntry* entries = ALLOCATE_ARRAY(vm, MapEntry, capacity);
   for (uint32_t i = 0; i < capacity; i++)
@@ -564,7 +558,7 @@ static void resizeMap(WrenVM* vm, ObjMap* map, uint32_t capacity)
       // Don't copy empty entries or tombstones.
       if (IS_UNDEFINED(entry->key)) continue;
 
-      insertEntry(entries, capacity, entry->key, entry->value);
+      insertEntry(entries, capacity, entry->key, entry->value, seed);
     }
   }
 
@@ -574,10 +568,11 @@ static void resizeMap(WrenVM* vm, ObjMap* map, uint32_t capacity)
   map->capacity = capacity;
 }
 
-Value wrenMapGet(ObjMap* map, Value key)
+Value wrenMapGet(WrenVM* vm, ObjMap* map, Value key)
 {
   MapEntry* entry;
-  if (findEntry(map->entries, map->capacity, key, &entry)) return entry->value;
+  if (findEntry(map->entries, map->capacity, key, vm->hashSeed, &entry))
+    return entry->value;
 
   return UNDEFINED_VAL;
 }
@@ -594,7 +589,7 @@ void wrenMapSet(WrenVM* vm, ObjMap* map, Value key, Value value)
     resizeMap(vm, map, capacity);
   }
 
-  if (insertEntry(map->entries, map->capacity, key, value))
+  if (insertEntry(map->entries, map->capacity, key, value, vm->hashSeed))
   {
     // A new key was added.
     map->count++;
@@ -612,7 +607,8 @@ void wrenMapClear(WrenVM* vm, ObjMap* map)
 Value wrenMapRemoveKey(WrenVM* vm, ObjMap* map, Value key)
 {
   MapEntry* entry;
-  if (!findEntry(map->entries, map->capacity, key, &entry)) return NULL_VAL;
+  if (!findEntry(map->entries, map->capacity, key, vm->hashSeed, &entry))
+    return NULL_VAL;
 
   // Remove the entry from the map. Set this value to true, which marks it as a
   // deleted slot. When searching for a key, we will stop on empty slots, but
@@ -689,15 +685,11 @@ static ObjString* allocateString(WrenVM* vm, size_t length)
   return string;
 }
 
-// Calculates and stores the hash code for [string].
-static void hashString(ObjString* string)
+static void hashString(ObjString* string, uint32_t seed)
 {
-  // FNV-1a hash. See: http://www.isthe.com/chongo/tech/comp/fnv/
-  uint32_t hash = 2166136261u;
+  // FNV-1a hash, seeded per-VM for hash flooding resistance.
+  uint32_t hash = seed ^ 2166136261u;
 
-  // This is O(n) on the length of the string, but we only call this when a new
-  // string is created. Since the creation is also O(n) (to copy/initialize all
-  // the bytes), we allow this here.
   for (uint32_t i = 0; i < string->length; i++)
   {
     hash ^= string->value[i];
@@ -723,7 +715,7 @@ Value wrenNewStringLength(WrenVM* vm, const char* text, size_t length)
   // Copy the string (if given one).
   if (length > 0 && text != NULL) memcpy(string->value, text, length);
   
-  hashString(string);
+  hashString(string, vm->hashSeed);
   return OBJ_VAL(string);
 }
 
@@ -753,7 +745,7 @@ Value wrenNewStringFromRange(WrenVM* vm, ObjString* source, int start,
     }
   }
 
-  hashString(result);
+  hashString(result, vm->hashSeed);
   return OBJ_VAL(result);
 }
 
@@ -804,7 +796,7 @@ Value wrenStringFromCodePoint(WrenVM* vm, int value)
   ObjString* string = allocateString(vm, length);
 
   wrenUtf8Encode(value, (uint8_t*)string->value);
-  hashString(string);
+  hashString(string, vm->hashSeed);
 
   return OBJ_VAL(string);
 }
@@ -814,7 +806,7 @@ Value wrenStringFromByte(WrenVM *vm, uint8_t value)
   int length = 1;
   ObjString* string = allocateString(vm, length);
   string->value[0] = value;
-  hashString(string);
+  hashString(string, vm->hashSeed);
   return OBJ_VAL(string);
 }
 
@@ -878,7 +870,7 @@ Value wrenStringFormat(WrenVM* vm, const char* format, ...)
   }
   va_end(argList);
 
-  hashString(result);
+  hashString(result, vm->hashSeed);
 
   return OBJ_VAL(result);
 }

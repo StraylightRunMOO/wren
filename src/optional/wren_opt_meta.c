@@ -41,7 +41,7 @@ void metaGetModuleVariables(WrenVM* vm)
 {
   wrenEnsureSlots(vm, 3);
   
-  Value moduleValue = wrenMapGet(vm->modules, vm->apiStack[1]);
+  Value moduleValue = wrenMapGet(vm, vm->modules, vm->apiStack[1]);
   if (IS_UNDEFINED(moduleValue))
   {
     vm->apiStack[0] = NULL_VAL;

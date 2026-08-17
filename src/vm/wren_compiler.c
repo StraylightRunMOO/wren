@@ -504,7 +504,7 @@ static int addConstant(Compiler* compiler, Value constant)
   // See if we already have a constant for the value. If so, reuse it.
   if (compiler->constants != NULL)
   {
-    Value existing = wrenMapGet(compiler->constants, constant);
+    Value existing = wrenMapGet(compiler->parser->vm, compiler->constants, constant);
     if (IS_NUM(existing)) return (int)AS_NUM(existing);
   }
   
@@ -4210,7 +4210,7 @@ static void addToAttributeGroup(Compiler* compiler,
   if(IS_OBJ(key))   wrenPushRoot(vm, AS_OBJ(key));
   if(IS_OBJ(value)) wrenPushRoot(vm, AS_OBJ(value));
 
-  Value groupMapValue = wrenMapGet(compiler->attributes, group);
+  Value groupMapValue = wrenMapGet(vm, compiler->attributes, group);
   if(IS_UNDEFINED(groupMapValue)) 
   {
     groupMapValue = OBJ_VAL(wrenNewMap(vm));
@@ -4223,7 +4223,7 @@ static void addToAttributeGroup(Compiler* compiler,
 
   //var keyItems = group[key]
   //if(!keyItems) keyItems = group[key] = [] 
-  Value keyItemsValue = wrenMapGet(groupMap, key);
+  Value keyItemsValue = wrenMapGet(vm, groupMap, key);
   if(IS_UNDEFINED(keyItemsValue)) 
   {
     keyItemsValue = OBJ_VAL(wrenNewList(vm, 0));
