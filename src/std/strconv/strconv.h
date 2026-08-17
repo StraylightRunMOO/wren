@@ -1,11 +1,11 @@
 #ifndef wren_strconv_h
 #define wren_strconv_h
 
-#include "wren.h"
+#include "pigeon.h"
 
 // strconv module - String conversions
-const char* wrenStrconvSource();
-WrenForeignMethodFn wrenStrconvBindForeignMethod(WrenVM* vm,
+const char* pigeonStrconvSource();
+PigeonForeignMethodFn pigeonStrconvBindForeignMethod(PigeonVM* vm,
                                                  const char* className,
                                                  bool isStatic,
                                                  const char* signature);

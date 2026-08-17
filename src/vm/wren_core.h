@@ -1,5 +1,5 @@
-#ifndef wren_core_h
-#define wren_core_h
+#ifndef pigeon_core_h
+#define pigeon_core_h
 
 #include "wren_vm.h"
 
@@ -18,21 +18,21 @@
 // behavior. For example, `System.print` should call `toString` on its argument,
 // including user-defined `toString` methods on user-defined classes.
 
-void wrenInitializeCore(WrenVM* vm);
+void pigeonInitializeCore(PigeonVM* vm);
 
 // Binds foreign methods for the core module (called for foreign methods declared
 // in wren_core.wren)
-WrenForeignMethodFn wrenCoreBindForeignMethod(const char* module, const char* className,
+PigeonForeignMethodFn pigeonCoreBindForeignMethod(const char* module, const char* className,
                                               bool isStatic, const char* signature);
 
 // Binds foreign class allocate/finalize for the core module
-WrenForeignClassMethods wrenCoreBindForeignClass(WrenVM* vm, const char* className);
+PigeonForeignClassMethods pigeonCoreBindForeignClass(PigeonVM* vm, const char* className);
 
 // GC mark callback for Generator foreign objects — grays the iterable value.
-void wrenGeneratorBlacken(WrenVM* vm, ObjForeign* foreign);
+void pigeonGeneratorBlacken(PigeonVM* vm, ObjForeign* foreign);
 
 // Drop iterator pointers from every live Generator. Call before
-// wrenIteratorReleaseAll so leftover Generator objects do not UAF.
-void wrenGeneratorDetachAll(WrenVM* vm);
+// pigeonIteratorReleaseAll so leftover Generator objects do not UAF.
+void pigeonGeneratorDetachAll(PigeonVM* vm);
 
 #endif

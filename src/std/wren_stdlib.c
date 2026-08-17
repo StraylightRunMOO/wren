@@ -7,8 +7,8 @@
 typedef struct {
   const char* name;
   const char* (*sourceFn)();
-  WrenForeignMethodFn (*bindMethodFn)(WrenVM*, const char*, bool, const char*);
-  WrenForeignClassMethods (*bindClassFn)(WrenVM*, const char*);
+  PigeonForeignMethodFn (*bindMethodFn)(PigeonVM*, const char*, bool, const char*);
+  PigeonForeignClassMethods (*bindClassFn)(PigeonVM*, const char*);
   const char* defaultExport;     // Default export name (e.g., "Math" for "math")
   const char** exports;          // NULL-terminated list of public exports
 } StdlibModule;
@@ -27,22 +27,22 @@ static const char* metaReflectionExports[] = { "reflection", "ClassInfo", "Metho
 static const char* jsonExports[] = { "Json", NULL };
 
 static StdlibModule stdlibModules[] = {
-  { "io", wrenIoSource, wrenIoBindForeignMethod, NULL, "io", ioExports },
-  { "fs", wrenFsSource, wrenFsBindForeignMethod, NULL, "fs", fsExports },
-  { "os", wrenOsSource, wrenOsBindForeignMethod, NULL, "os", osExports },
-  { "strconv", wrenStrconvSource, wrenStrconvBindForeignMethod, NULL, "strconv", strconvExports },
-  { "time", wrenTimeSource, wrenTimeBindForeignMethod, NULL, "Time", timeExports },
-  { "math", wrenMathModuleSource, wrenMathModuleBindForeignMethod, NULL, "math", mathExports },
-  { "math/random", wrenRandomModuleSource, wrenRandomModuleBindForeignMethod, wrenRandomModuleBindForeignClass, "Random", mathRandomExports },
-  { "strings", wrenStringsSource, wrenStringsBindForeignMethod, NULL, "strings", stringsExports },
-  { "meta", wrenMetaSource, wrenMetaBindForeignMethod, NULL, "meta", metaExports },
-  { "meta/reflection", wrenReflectionSource, wrenReflectionBindForeignMethod, NULL, "reflection", metaReflectionExports },
-  { "encoding/json", wrenJsonSource, wrenJsonBindForeignMethod, NULL, "Json", jsonExports },
+  { "io", pigeonIoSource, pigeonIoBindForeignMethod, NULL, "io", ioExports },
+  { "fs", pigeonFsSource, pigeonFsBindForeignMethod, NULL, "fs", fsExports },
+  { "os", pigeonOsSource, pigeonOsBindForeignMethod, NULL, "os", osExports },
+  { "strconv", pigeonStrconvSource, pigeonStrconvBindForeignMethod, NULL, "strconv", strconvExports },
+  { "time", pigeonTimeSource, pigeonTimeBindForeignMethod, NULL, "Time", timeExports },
+  { "math", pigeonMathModuleSource, pigeonMathModuleBindForeignMethod, NULL, "math", mathExports },
+  { "math/random", pigeonRandomModuleSource, pigeonRandomModuleBindForeignMethod, pigeonRandomModuleBindForeignClass, "Random", mathRandomExports },
+  { "strings", pigeonStringsSource, pigeonStringsBindForeignMethod, NULL, "strings", stringsExports },
+  { "meta", pigeonMetaSource, pigeonMetaBindForeignMethod, NULL, "meta", metaExports },
+  { "meta/reflection", pigeonReflectionSource, pigeonReflectionBindForeignMethod, NULL, "reflection", metaReflectionExports },
+  { "encoding/json", pigeonJsonSource, pigeonJsonBindForeignMethod, NULL, "Json", jsonExports },
   { NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
 // Check if a module is a stdlib module
-int wrenStdlibHasModule(const char* name) {
+int pigeonStdlibHasModule(const char* name) {
   for (int i = 0; stdlibModules[i].name != NULL; i++) {
     if (strcmp(stdlibModules[i].name, name) == 0) {
       return 1;
@@ -52,7 +52,7 @@ int wrenStdlibHasModule(const char* name) {
 }
 
 // Load module source
-const char* wrenStdlibLoadModule(const char* name) {
+const char* pigeonStdlibLoadModule(const char* name) {
   for (int i = 0; stdlibModules[i].name != NULL; i++) {
     if (strcmp(stdlibModules[i].name, name) == 0) {
       return stdlibModules[i].sourceFn();
@@ -62,7 +62,7 @@ const char* wrenStdlibLoadModule(const char* name) {
 }
 
 // Binds foreign methods for a module
-WrenForeignMethodFn wrenStdlibBindForeign(WrenVM* vm, const char* module, 
+PigeonForeignMethodFn pigeonStdlibBindForeign(PigeonVM* vm, const char* module, 
                                           const char* className, bool isStatic,
                                           const char* signature)
 {
@@ -80,13 +80,13 @@ WrenForeignMethodFn wrenStdlibBindForeign(WrenVM* vm, const char* module,
 }
 
 // Binds foreign classes for a module
-WrenForeignClassMethods wrenStdlibBindForeignClass(WrenVM* vm, const char* module,
+PigeonForeignClassMethods pigeonStdlibBindForeignClass(PigeonVM* vm, const char* module,
                                                    const char* className)
 {
   (void)vm;
   (void)className;
   
-  WrenForeignClassMethods methods = { NULL, NULL };
+  PigeonForeignClassMethods methods = { NULL, NULL };
   
   for (int i = 0; stdlibModules[i].name != NULL; i++) {
     if (strcmp(stdlibModules[i].name, module) == 0) {
@@ -101,7 +101,7 @@ WrenForeignClassMethods wrenStdlibBindForeignClass(WrenVM* vm, const char* modul
 
 // Get the default export name for a module (e.g., "Math" for "math")
 // Returns NULL if module not found or has no default export
-const char* wrenStdlibGetDefaultExport(const char* name) {
+const char* pigeonStdlibGetDefaultExport(const char* name) {
   for (int i = 0; stdlibModules[i].name != NULL; i++) {
     if (strcmp(stdlibModules[i].name, name) == 0) {
       return stdlibModules[i].defaultExport;
@@ -112,7 +112,7 @@ const char* wrenStdlibGetDefaultExport(const char* name) {
 
 // Get the list of exports for a module (for wildcard imports)
 // Returns NULL if module not found
-const char** wrenStdlibGetExports(const char* name) {
+const char** pigeonStdlibGetExports(const char* name) {
   for (int i = 0; stdlibModules[i].name != NULL; i++) {
     if (strcmp(stdlibModules[i].name, name) == 0) {
       return stdlibModules[i].exports;

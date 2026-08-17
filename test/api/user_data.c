@@ -17,46 +17,46 @@ void* testReallocateFn(void* ptr, size_t newSize, void* userData) {
   return realloc(ptr, newSize);
 }
 
-static void test(WrenVM* vm)
+static void test(PigeonVM* vm)
 {
-  WrenConfiguration configuration;
-  wrenInitConfiguration(&configuration);
+  PigeonConfiguration configuration;
+  pigeonInitConfiguration(&configuration);
 
   // Should default to NULL.
   if (configuration.userData != NULL)
   {
-    wrenSetSlotBool(vm, 0, false);
+    pigeonSetSlotBool(vm, 0, false);
     return;
   }
 
   configuration.reallocateFn = testReallocateFn;
   configuration.userData = (void*)data;
 
-  WrenVM* otherVM = wrenNewVM(&configuration);
+  PigeonVM* otherVM = pigeonNewVM(&configuration);
 
   // Should be able to get it.
-  if (wrenGetUserData(otherVM) != data)
+  if (pigeonGetUserData(otherVM) != data)
   {
-    wrenSetSlotBool(vm, 0, false);
-    wrenFreeVM(otherVM);
+    pigeonSetSlotBool(vm, 0, false);
+    pigeonFreeVM(otherVM);
     return;
   }
 
   // Should be able to set it.
-  wrenSetUserData(otherVM, (void*)otherData);
+  pigeonSetUserData(otherVM, (void*)otherData);
 
-  if (wrenGetUserData(otherVM) != otherData)
+  if (pigeonGetUserData(otherVM) != otherData)
   {
-    wrenSetSlotBool(vm, 0, false);
-    wrenFreeVM(otherVM);
+    pigeonSetSlotBool(vm, 0, false);
+    pigeonFreeVM(otherVM);
     return;
   }
 
-  wrenSetSlotBool(vm, 0, true);
-  wrenFreeVM(otherVM);
+  pigeonSetSlotBool(vm, 0, true);
+  pigeonFreeVM(otherVM);
 }
 
-WrenForeignMethodFn userDataBindMethod(const char* signature)
+PigeonForeignMethodFn userDataBindMethod(const char* signature)
 {
   if (strcmp(signature, "static UserData.test") == 0) return test;
 

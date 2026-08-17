@@ -2,56 +2,56 @@
 
 #include "get_variable.h"
 
-static void beforeDefined(WrenVM* vm)
+static void beforeDefined(PigeonVM* vm)
 {
-  wrenGetVariable(vm, "./test/api/get_variable", "A", 0);
+  pigeonGetVariable(vm, "./test/api/get_variable", "A", 0);
 }
 
-static void afterDefined(WrenVM* vm)
+static void afterDefined(PigeonVM* vm)
 {
-  wrenGetVariable(vm, "./test/api/get_variable", "A", 0);
+  pigeonGetVariable(vm, "./test/api/get_variable", "A", 0);
 }
 
-static void afterAssigned(WrenVM* vm)
+static void afterAssigned(PigeonVM* vm)
 {
-  wrenGetVariable(vm, "./test/api/get_variable", "A", 0);
+  pigeonGetVariable(vm, "./test/api/get_variable", "A", 0);
 }
 
-static void otherSlot(WrenVM* vm)
+static void otherSlot(PigeonVM* vm)
 {
-  wrenEnsureSlots(vm, 3);
-  wrenGetVariable(vm, "./test/api/get_variable", "B", 2);
+  pigeonEnsureSlots(vm, 3);
+  pigeonGetVariable(vm, "./test/api/get_variable", "B", 2);
 
   // Move it into return position.
-  const char* string = wrenGetSlotString(vm, 2);
-  wrenSetSlotString(vm, 0, string);
+  const char* string = pigeonGetSlotString(vm, 2);
+  pigeonSetSlotString(vm, 0, string);
 }
 
-static void otherModule(WrenVM* vm)
+static void otherModule(PigeonVM* vm)
 {
-  wrenGetVariable(vm, "./test/api/get_variable_module", "Variable", 0);
+  pigeonGetVariable(vm, "./test/api/get_variable_module", "Variable", 0);
 }
 
-static void hasVariable(WrenVM* vm)
+static void hasVariable(PigeonVM* vm)
 {
-  const char* module = wrenGetSlotString(vm, 1);
-  const char* variable = wrenGetSlotString(vm, 2);
+  const char* module = pigeonGetSlotString(vm, 1);
+  const char* variable = pigeonGetSlotString(vm, 2);
 
-  bool result = wrenHasVariable(vm, module, variable);
-  wrenEnsureSlots(vm, 1);
-  wrenSetSlotBool(vm, 0, result);
+  bool result = pigeonHasVariable(vm, module, variable);
+  pigeonEnsureSlots(vm, 1);
+  pigeonSetSlotBool(vm, 0, result);
 }
 
-static void hasModule(WrenVM* vm)
+static void hasModule(PigeonVM* vm)
 {
-  const char* module = wrenGetSlotString(vm, 1);
+  const char* module = pigeonGetSlotString(vm, 1);
 
-  bool result = wrenHasModule(vm, module);
-  wrenEnsureSlots(vm, 1);
-  wrenSetSlotBool(vm, 0, result);
+  bool result = pigeonHasModule(vm, module);
+  pigeonEnsureSlots(vm, 1);
+  pigeonSetSlotBool(vm, 0, result);
 }
 
-WrenForeignMethodFn getVariableBindMethod(const char* signature)
+PigeonForeignMethodFn getVariableBindMethod(const char* signature)
 {
   if (strcmp(signature, "static GetVariable.beforeDefined()") == 0) return beforeDefined;
   if (strcmp(signature, "static GetVariable.afterDefined()") == 0) return afterDefined;

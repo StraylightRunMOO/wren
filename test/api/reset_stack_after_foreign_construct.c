@@ -1,16 +1,16 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "wren.h"
+#include "pigeon.h"
 
-static void counterAllocate(WrenVM* vm)
+static void counterAllocate(PigeonVM* vm)
 {
-  double* counter = (double*)wrenSetSlotNewForeign(vm, 0, 0, sizeof(double));
-  *counter = wrenGetSlotDouble(vm, 1);
+  double* counter = (double*)pigeonSetSlotNewForeign(vm, 0, 0, sizeof(double));
+  *counter = pigeonGetSlotDouble(vm, 1);
 }
 
 void resetStackAfterForeignConstructBindClass(
-    const char* className, WrenForeignClassMethods* methods)
+    const char* className, PigeonForeignClassMethods* methods)
 {
   if (strcmp(className, "ResetStackForeign") == 0)
   {
@@ -19,29 +19,29 @@ void resetStackAfterForeignConstructBindClass(
   }
 }
 
-int resetStackAfterForeignConstructRunTests(WrenVM* vm)
+int resetStackAfterForeignConstructRunTests(PigeonVM* vm)
 {
-  wrenEnsureSlots(vm, 1);
-  wrenGetVariable(vm,
+  pigeonEnsureSlots(vm, 1);
+  pigeonGetVariable(vm,
       "./test/api/reset_stack_after_foreign_construct", "Test", 0);
-  WrenHandle* testClass = wrenGetSlotHandle(vm, 0);
+  PigeonHandle* testClass = pigeonGetSlotHandle(vm, 0);
 
-  WrenHandle* callConstruct = wrenMakeCallHandle(vm, "callConstruct()");
-  WrenHandle* afterConstruct = wrenMakeCallHandle(vm, "afterConstruct(_,_)");
+  PigeonHandle* callConstruct = pigeonMakeCallHandle(vm, "callConstruct()");
+  PigeonHandle* afterConstruct = pigeonMakeCallHandle(vm, "afterConstruct(_,_)");
 
-  wrenEnsureSlots(vm, 1);
-  wrenSetSlotHandle(vm, 0, testClass);
-  wrenCall(vm, callConstruct);
+  pigeonEnsureSlots(vm, 1);
+  pigeonSetSlotHandle(vm, 0, testClass);
+  pigeonCall(vm, callConstruct);
 
-  wrenEnsureSlots(vm, 3);
-  wrenSetSlotHandle(vm, 0, testClass);
-  wrenSetSlotDouble(vm, 1, 1.0);
-  wrenSetSlotDouble(vm, 2, 2.0);
-  wrenCall(vm, afterConstruct);
+  pigeonEnsureSlots(vm, 3);
+  pigeonSetSlotHandle(vm, 0, testClass);
+  pigeonSetSlotDouble(vm, 1, 1.0);
+  pigeonSetSlotDouble(vm, 2, 2.0);
+  pigeonCall(vm, afterConstruct);
 
-  wrenReleaseHandle(vm, testClass);
-  wrenReleaseHandle(vm, callConstruct);
-  wrenReleaseHandle(vm, afterConstruct);
+  pigeonReleaseHandle(vm, testClass);
+  pigeonReleaseHandle(vm, callConstruct);
+  pigeonReleaseHandle(vm, afterConstruct);
 
   return 0;
 }

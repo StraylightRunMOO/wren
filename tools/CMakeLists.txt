@@ -7,7 +7,6 @@ target_include_directories(pigeon_cli PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/include
 )
 
-target_compile_definitions(pigeon_cli PRIVATE PIGEON_NO_WREN_DEPRECATION)
 target_link_libraries(pigeon_cli PRIVATE pigeon)
 
 install(TARGETS pigeon_cli

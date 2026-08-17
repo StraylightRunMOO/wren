@@ -12,19 +12,19 @@ typedef enum {
     ITER_STRING
 } IterKind;
 
-struct WrenIterator {
+struct PigeonIterator {
     IterKind kind;
-    WrenValue iterable;
-    WrenValue lastValue;
+    PigeonValue iterable;
+    PigeonValue lastValue;
     // LIST/STRING: next element/byte index.
     // MAP: next slot to scan. RANGE: unused (see rangePos).
     uint32_t index;
     double rangePos;
-    WrenIterator* next;
-    WrenIterator* prev;
+    PigeonIterator* next;
+    PigeonIterator* prev;
 };
 
-static void linkIterator(WrenVM* vm, WrenIterator* it)
+static void linkIterator(PigeonVM* vm, PigeonIterator* it)
 {
     it->prev = NULL;
     it->next = vm->liveIterators;
@@ -32,7 +32,7 @@ static void linkIterator(WrenVM* vm, WrenIterator* it)
     vm->liveIterators = it;
 }
 
-static void unlinkIterator(WrenVM* vm, WrenIterator* it)
+static void unlinkIterator(PigeonVM* vm, PigeonIterator* it)
 {
     if (it->prev) it->prev->next = it->next;
     else vm->liveIterators = it->next;
@@ -40,7 +40,7 @@ static void unlinkIterator(WrenVM* vm, WrenIterator* it)
     it->prev = it->next = NULL;
 }
 
-int wrenIteratorCreate(WrenVM* vm, WrenValue iterable, WrenIterator** outIter)
+int pigeonIteratorCreate(PigeonVM* vm, PigeonValue iterable, PigeonIterator** outIter)
 {
     if (!outIter) return -1;
     *outIter = NULL;
@@ -52,7 +52,7 @@ int wrenIteratorCreate(WrenVM* vm, WrenValue iterable, WrenIterator** outIter)
     else if (IS_STRING(iterable)) kind = ITER_STRING;
     else return -2;
 
-    WrenIterator* it = (WrenIterator*)wrenReallocate(vm, NULL, 0, sizeof(WrenIterator));
+    PigeonIterator* it = (PigeonIterator*)pigeonReallocate(vm, NULL, 0, sizeof(PigeonIterator));
     if (!it) return -1;
     memset(it, 0, sizeof(*it));
     it->kind = kind;
@@ -66,7 +66,7 @@ int wrenIteratorCreate(WrenVM* vm, WrenValue iterable, WrenIterator** outIter)
     return 0;
 }
 
-int wrenIteratorNext(WrenIterator* restrict it, WrenValue* restrict outVal)
+int pigeonIteratorNext(PigeonIterator* restrict it, PigeonValue* restrict outVal)
 {
     if (!it || !outVal)
     {
@@ -139,7 +139,7 @@ int wrenIteratorNext(WrenIterator* restrict it, WrenValue* restrict outVal)
                 return 0;
             }
             it->lastValue = NUM_VAL((double)(it->index + 1));
-            int numBytes = wrenUtf8DecodeNumBytes((uint8_t)string->value[it->index]);
+            int numBytes = pigeonUtf8DecodeNumBytes((uint8_t)string->value[it->index]);
             if (numBytes == 0) numBytes = 1;
             it->index += (uint32_t)numBytes;
             *outVal = it->lastValue;
@@ -151,29 +151,29 @@ int wrenIteratorNext(WrenIterator* restrict it, WrenValue* restrict outVal)
     return 0;
 }
 
-void wrenIteratorShutdown(WrenIterator* it)
+void pigeonIteratorShutdown(PigeonIterator* it)
 {
     (void)it;
 }
 
-void wrenIteratorRelease(WrenVM* vm, WrenIterator* it)
+void pigeonIteratorRelease(PigeonVM* vm, PigeonIterator* it)
 {
     if (!it) return;
     unlinkIterator(vm, it);
-    wrenReallocate(vm, it, sizeof(WrenIterator), 0);
+    pigeonReallocate(vm, it, sizeof(PigeonIterator), 0);
 }
 
-void wrenIteratorGray(WrenVM* vm, WrenIterator* it)
+void pigeonIteratorGray(PigeonVM* vm, PigeonIterator* it)
 {
     if (!it) return;
-    wrenGrayValue(vm, it->lastValue);
-    wrenGrayValue(vm, it->iterable);
+    pigeonGrayValue(vm, it->lastValue);
+    pigeonGrayValue(vm, it->iterable);
 }
 
-void wrenIteratorReleaseAll(WrenVM* vm)
+void pigeonIteratorReleaseAll(PigeonVM* vm)
 {
     while (vm->liveIterators)
     {
-        wrenIteratorRelease(vm, vm->liveIterators);
+        pigeonIteratorRelease(vm, vm->liveIterators);
     }
 }

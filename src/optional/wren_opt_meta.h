@@ -1,14 +1,14 @@
-#ifndef wren_opt_meta_h
-#define wren_opt_meta_h
+#ifndef pigeon_opt_meta_h
+#define pigeon_opt_meta_h
 
 #include "wren_common.h"
-#include "wren.h"
+#include "pigeon.h"
 
 // This module defines the Meta class and its associated methods.
-#if WREN_OPT_META
+#if PIGEON_OPT_META
 
-const char* wrenMetaSource();
-WrenForeignMethodFn wrenMetaBindForeignMethod(WrenVM* vm,
+const char* pigeonMetaSource();
+PigeonForeignMethodFn pigeonMetaBindForeignMethod(PigeonVM* vm,
                                               const char* className,
                                               bool isStatic,
                                               const char* signature);

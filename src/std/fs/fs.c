@@ -8,7 +8,7 @@
 #include <errno.h>
 
 #include "fs.h"
-#include "wren.h"
+#include "pigeon.h"
 #include "wren_common.h"
 
 // Foreign data for File instances.
@@ -18,33 +18,33 @@ typedef struct {
 
 // ---- fs static methods (filesystem operations, no File instance) ----------
 
-static void fsExists(WrenVM* vm) {
-  const char* path = wrenGetSlotString(vm, 1);
+static void fsExists(PigeonVM* vm) {
+  const char* path = pigeonGetSlotString(vm, 1);
   struct stat st;
-  wrenSetSlotBool(vm, 0, stat(path, &st) == 0);
+  pigeonSetSlotBool(vm, 0, stat(path, &st) == 0);
 }
 
-static void fsRemove(WrenVM* vm) {
-  const char* path = wrenGetSlotString(vm, 1);
-  wrenSetSlotBool(vm, 0, remove(path) == 0);
+static void fsRemove(PigeonVM* vm) {
+  const char* path = pigeonGetSlotString(vm, 1);
+  pigeonSetSlotBool(vm, 0, remove(path) == 0);
 }
 
-static void fsRename(WrenVM* vm) {
-  const char* oldPath = wrenGetSlotString(vm, 1);
-  const char* newPath = wrenGetSlotString(vm, 2);
-  wrenSetSlotBool(vm, 0, rename(oldPath, newPath) == 0);
+static void fsRename(PigeonVM* vm) {
+  const char* oldPath = pigeonGetSlotString(vm, 1);
+  const char* newPath = pigeonGetSlotString(vm, 2);
+  pigeonSetSlotBool(vm, 0, rename(oldPath, newPath) == 0);
 }
 
-static void fsSize(WrenVM* vm) {
-  const char* path = wrenGetSlotString(vm, 1);
+static void fsSize(PigeonVM* vm) {
+  const char* path = pigeonGetSlotString(vm, 1);
   struct stat st;
-  wrenSetSlotDouble(vm, 0, stat(path, &st) == 0 ? (double)st.st_size : -1);
+  pigeonSetSlotDouble(vm, 0, stat(path, &st) == 0 ? (double)st.st_size : -1);
 }
 
 // ---- File foreign class ---------------------------------------------------
 
-static void fileAllocate(WrenVM* vm) {
-  FileData* data = (FileData*)wrenSetSlotNewForeign(vm, 0, 0, sizeof(FileData));
+static void fileAllocate(PigeonVM* vm) {
+  FileData* data = (FileData*)pigeonSetSlotNewForeign(vm, 0, 0, sizeof(FileData));
   data->fd = -1;
 }
 
@@ -58,12 +58,12 @@ static void fileFinalize(void* data) {
 
 // ---- File O_* constants ---------------------------------------------------
 
-static void fileORdonly(WrenVM* vm) { wrenSetSlotDouble(vm, 0, O_RDONLY); }
-static void fileOWronly(WrenVM* vm) { wrenSetSlotDouble(vm, 0, O_WRONLY); }
-static void fileORdwr(WrenVM* vm)   { wrenSetSlotDouble(vm, 0, O_RDWR); }
-static void fileOCreate(WrenVM* vm) { wrenSetSlotDouble(vm, 0, O_CREAT); }
-static void fileOTrunc(WrenVM* vm)  { wrenSetSlotDouble(vm, 0, O_TRUNC); }
-static void fileOAppend(WrenVM* vm) { wrenSetSlotDouble(vm, 0, O_APPEND); }
+static void fileORdonly(PigeonVM* vm) { pigeonSetSlotDouble(vm, 0, O_RDONLY); }
+static void fileOWronly(PigeonVM* vm) { pigeonSetSlotDouble(vm, 0, O_WRONLY); }
+static void fileORdwr(PigeonVM* vm)   { pigeonSetSlotDouble(vm, 0, O_RDWR); }
+static void fileOCreate(PigeonVM* vm) { pigeonSetSlotDouble(vm, 0, O_CREAT); }
+static void fileOTrunc(PigeonVM* vm)  { pigeonSetSlotDouble(vm, 0, O_TRUNC); }
+static void fileOAppend(PigeonVM* vm) { pigeonSetSlotDouble(vm, 0, O_APPEND); }
 
 // ---- File mode parsing (C side, used by constructor) ----------------------
 
@@ -78,58 +78,58 @@ static int parseMode(const char* mode) {
 }
 
 // File.new(path, mode) — foreign constructor body
-static void fileInit(WrenVM* vm) {
-  FileData* data = (FileData*)wrenGetSlotForeign(vm, 0);
-  const char* path = wrenGetSlotString(vm, 1);
-  const char* mode = wrenGetSlotString(vm, 2);
+static void fileInit(PigeonVM* vm) {
+  FileData* data = (FileData*)pigeonGetSlotForeign(vm, 0);
+  const char* path = pigeonGetSlotString(vm, 1);
+  const char* mode = pigeonGetSlotString(vm, 2);
 
   int flags = parseMode(mode);
   if (flags == -1) {
-    wrenSetSlotString(vm, 0, "Invalid file mode");
-    wrenAbortFiber(vm, 0);
+    pigeonSetSlotString(vm, 0, "Invalid file mode");
+    pigeonAbortFiber(vm, 0);
     return;
   }
 
   data->fd = open(path, flags, 0644);
   if (data->fd < 0) {
-    wrenSetSlotString(vm, 0, "Failed to open file");
-    wrenAbortFiber(vm, 0);
+    pigeonSetSlotString(vm, 0, "Failed to open file");
+    pigeonAbortFiber(vm, 0);
   }
 }
 
 // ---- File instance methods ------------------------------------------------
 
-static void fileFd(WrenVM* vm) {
-  FileData* data = (FileData*)wrenGetSlotForeign(vm, 0);
-  wrenSetSlotDouble(vm, 0, data->fd);
+static void fileFd(PigeonVM* vm) {
+  FileData* data = (FileData*)pigeonGetSlotForeign(vm, 0);
+  pigeonSetSlotDouble(vm, 0, data->fd);
 }
 
-static void fileRead(WrenVM* vm) {
-  FileData* data = (FileData*)wrenGetSlotForeign(vm, 0);
-  int n = (int)wrenGetSlotDouble(vm, 1);
+static void fileRead(PigeonVM* vm) {
+  FileData* data = (FileData*)pigeonGetSlotForeign(vm, 0);
+  int n = (int)pigeonGetSlotDouble(vm, 1);
   if (n <= 0) {
-    wrenSetSlotBytes(vm, 0, "", 0);
+    pigeonSetSlotBytes(vm, 0, "", 0);
     return;
   }
   char* buf = malloc((size_t)n);
   if (buf == NULL) {
-    wrenSetSlotString(vm, 0, "Out of memory");
-    wrenAbortFiber(vm, 0);
+    pigeonSetSlotString(vm, 0, "Out of memory");
+    pigeonAbortFiber(vm, 0);
     return;
   }
   ssize_t got = read(data->fd, buf, (size_t)n);
   if (got < 0) got = 0;
-  wrenSetSlotBytes(vm, 0, buf, (size_t)got);
+  pigeonSetSlotBytes(vm, 0, buf, (size_t)got);
   free(buf);
 }
 
-static void fileReadAll(WrenVM* vm) {
-  FileData* data = (FileData*)wrenGetSlotForeign(vm, 0);
+static void fileReadAll(PigeonVM* vm) {
+  FileData* data = (FileData*)pigeonGetSlotForeign(vm, 0);
   size_t cap = 4096, len = 0;
   char* buf = malloc(cap);
   if (buf == NULL) {
-    wrenSetSlotString(vm, 0, "Out of memory");
-    wrenAbortFiber(vm, 0);
+    pigeonSetSlotString(vm, 0, "Out of memory");
+    pigeonAbortFiber(vm, 0);
     return;
   }
   ssize_t n;
@@ -140,24 +140,24 @@ static void fileReadAll(WrenVM* vm) {
       char* grown = realloc(buf, cap);
       if (grown == NULL) {
         free(buf);
-        wrenSetSlotString(vm, 0, "Out of memory");
-        wrenAbortFiber(vm, 0);
+        pigeonSetSlotString(vm, 0, "Out of memory");
+        pigeonAbortFiber(vm, 0);
         return;
       }
       buf = grown;
     }
   }
-  wrenSetSlotBytes(vm, 0, buf, len);
+  pigeonSetSlotBytes(vm, 0, buf, len);
   free(buf);
 }
 
-static void fileReadLine(WrenVM* vm) {
-  FileData* data = (FileData*)wrenGetSlotForeign(vm, 0);
+static void fileReadLine(PigeonVM* vm) {
+  FileData* data = (FileData*)pigeonGetSlotForeign(vm, 0);
   size_t cap = 256, len = 0;
   char* buf = malloc(cap);
   if (buf == NULL) {
-    wrenSetSlotString(vm, 0, "Out of memory");
-    wrenAbortFiber(vm, 0);
+    pigeonSetSlotString(vm, 0, "Out of memory");
+    pigeonAbortFiber(vm, 0);
     return;
   }
   char c;
@@ -168,45 +168,45 @@ static void fileReadLine(WrenVM* vm) {
       char* grown = realloc(buf, cap);
       if (grown == NULL) {
         free(buf);
-        wrenSetSlotString(vm, 0, "Out of memory");
-        wrenAbortFiber(vm, 0);
+        pigeonSetSlotString(vm, 0, "Out of memory");
+        pigeonAbortFiber(vm, 0);
         return;
       }
       buf = grown;
     }
     buf[len++] = c;
   }
-  wrenSetSlotBytes(vm, 0, buf, len);
+  pigeonSetSlotBytes(vm, 0, buf, len);
   free(buf);
 }
 
-static void fileWrite(WrenVM* vm) {
-  FileData* data = (FileData*)wrenGetSlotForeign(vm, 0);
+static void fileWrite(PigeonVM* vm) {
+  FileData* data = (FileData*)pigeonGetSlotForeign(vm, 0);
   int length = 0;
-  const char* s = wrenGetSlotBytes(vm, 1, &length);
+  const char* s = pigeonGetSlotBytes(vm, 1, &length);
   ssize_t written = write(data->fd, s, (size_t)length);
-  wrenSetSlotDouble(vm, 0, (double)(written < 0 ? 0 : written));
+  pigeonSetSlotDouble(vm, 0, (double)(written < 0 ? 0 : written));
 }
 
-static void fileFlush(WrenVM* vm) {
-  FileData* data = (FileData*)wrenGetSlotForeign(vm, 0);
+static void fileFlush(PigeonVM* vm) {
+  FileData* data = (FileData*)pigeonGetSlotForeign(vm, 0);
   fsync(data->fd);
 }
 
-static void fileSeek(WrenVM* vm) {
-  FileData* data = (FileData*)wrenGetSlotForeign(vm, 0);
-  off_t off  = (off_t)wrenGetSlotDouble(vm, 1);
-  int whence = (int)wrenGetSlotDouble(vm, 2);
-  wrenSetSlotDouble(vm, 0, (double)lseek(data->fd, off, whence));
+static void fileSeek(PigeonVM* vm) {
+  FileData* data = (FileData*)pigeonGetSlotForeign(vm, 0);
+  off_t off  = (off_t)pigeonGetSlotDouble(vm, 1);
+  int whence = (int)pigeonGetSlotDouble(vm, 2);
+  pigeonSetSlotDouble(vm, 0, (double)lseek(data->fd, off, whence));
 }
 
-static void fileTell(WrenVM* vm) {
-  FileData* data = (FileData*)wrenGetSlotForeign(vm, 0);
-  wrenSetSlotDouble(vm, 0, (double)lseek(data->fd, 0, SEEK_CUR));
+static void fileTell(PigeonVM* vm) {
+  FileData* data = (FileData*)pigeonGetSlotForeign(vm, 0);
+  pigeonSetSlotDouble(vm, 0, (double)lseek(data->fd, 0, SEEK_CUR));
 }
 
-static void fileClose(WrenVM* vm) {
-  FileData* data = (FileData*)wrenGetSlotForeign(vm, 0);
+static void fileClose(PigeonVM* vm) {
+  FileData* data = (FileData*)pigeonGetSlotForeign(vm, 0);
   if (data->fd >= 0) {
     close(data->fd);
     data->fd = -1;
@@ -217,13 +217,13 @@ static void fileClose(WrenVM* vm) {
 
 #include "fs.wren.inc"
 
-const char* wrenFsSource() {
+const char* pigeonFsSource() {
   return fsModuleSource;
 }
 
 // ---- Foreign method binding -----------------------------------------------
 
-WrenForeignMethodFn wrenFsBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
+PigeonForeignMethodFn pigeonFsBindForeignMethod(PigeonVM* PIGEON_MAYBE_UNUSED vm,
                                             const char* className,
                                             bool isStatic,
                                             const char* signature)
@@ -266,10 +266,10 @@ WrenForeignMethodFn wrenFsBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
 
 // ---- Foreign class binding ------------------------------------------------
 
-WrenForeignClassMethods wrenFsBindForeignClass(WrenVM* WREN_MAYBE_UNUSED vm,
+PigeonForeignClassMethods pigeonFsBindForeignClass(PigeonVM* PIGEON_MAYBE_UNUSED vm,
                                                const char* className)
 {
-  WrenForeignClassMethods methods = { NULL, NULL };
+  PigeonForeignClassMethods methods = { NULL, NULL };
 
   if (strcmp(className, "File") == 0) {
     methods.allocate = fileAllocate;

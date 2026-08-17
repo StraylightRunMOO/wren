@@ -7,41 +7,41 @@
 #include <sys/time.h>
 
 #include "time.h"
-#include "wren.h"
+#include "pigeon.h"
 #include "wren_common.h"
 #include "wren_vm.h"
 
 // Get current time as Unix timestamp
-static void timeNow(WrenVM* vm) {
+static void timeNow(PigeonVM* vm) {
   struct timeval tv;
   gettimeofday(&tv, NULL);
-  wrenSetSlotDouble(vm, 0, (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0);
+  pigeonSetSlotDouble(vm, 0, (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0);
 }
 
 // Get current time in milliseconds
-static void timeNowMillis(WrenVM* vm) {
+static void timeNowMillis(PigeonVM* vm) {
   struct timeval tv;
   gettimeofday(&tv, NULL);
-  wrenSetSlotDouble(vm, 0, (double)(tv.tv_sec * 1000 + tv.tv_usec / 1000));
+  pigeonSetSlotDouble(vm, 0, (double)(tv.tv_sec * 1000 + tv.tv_usec / 1000));
 }
 
 // Get current time in nanoseconds
-static void timeNowNanos(WrenVM* vm) {
+static void timeNowNanos(PigeonVM* vm) {
   struct timespec ts;
   clock_gettime(CLOCK_REALTIME, &ts);
-  wrenSetSlotDouble(vm, 0, (double)(ts.tv_sec * 1000000000LL + ts.tv_nsec));
+  pigeonSetSlotDouble(vm, 0, (double)(ts.tv_sec * 1000000000LL + ts.tv_nsec));
 }
 
 // Sleep for specified seconds
-static void timeSleep(WrenVM* vm) {
-  double seconds = wrenGetSlotDouble(vm, 1);
+static void timeSleep(PigeonVM* vm) {
+  double seconds = pigeonGetSlotDouble(vm, 1);
   usleep((useconds_t)(seconds * 1000000));
 }
 
 // Parse time from string
-static void timeParse(WrenVM* vm) {
-  const char* layout = wrenGetSlotString(vm, 1);
-  const char* value = wrenGetSlotString(vm, 2);
+static void timeParse(PigeonVM* vm) {
+  const char* layout = pigeonGetSlotString(vm, 1);
+  const char* value = pigeonGetSlotString(vm, 2);
   
   // Simplified parsing - support common layouts
   struct tm tm = {0};
@@ -64,17 +64,17 @@ static void timeParse(WrenVM* vm) {
   }
   
   time_t t = mktime(&tm);
-  wrenSetSlotDouble(vm, 0, (double)t);
+  pigeonSetSlotDouble(vm, 0, (double)t);
 }
 
 // Create time from components
-static void timeFromComponents(WrenVM* vm) {
-  int year = (int)wrenGetSlotDouble(vm, 1);
-  int month = (int)wrenGetSlotDouble(vm, 2);
-  int day = (int)wrenGetSlotDouble(vm, 3);
-  int hour = (int)wrenGetSlotDouble(vm, 4);
-  int min = (int)wrenGetSlotDouble(vm, 5);
-  int sec = (int)wrenGetSlotDouble(vm, 6);
+static void timeFromComponents(PigeonVM* vm) {
+  int year = (int)pigeonGetSlotDouble(vm, 1);
+  int month = (int)pigeonGetSlotDouble(vm, 2);
+  int day = (int)pigeonGetSlotDouble(vm, 3);
+  int hour = (int)pigeonGetSlotDouble(vm, 4);
+  int min = (int)pigeonGetSlotDouble(vm, 5);
+  int sec = (int)pigeonGetSlotDouble(vm, 6);
   
   struct tm tm = {0};
   tm.tm_year = year - 1900;
@@ -85,13 +85,13 @@ static void timeFromComponents(WrenVM* vm) {
   tm.tm_sec = sec;
   
   time_t t = mktime(&tm);
-  wrenSetSlotDouble(vm, 0, (double)t);
+  pigeonSetSlotDouble(vm, 0, (double)t);
 }
 
 // Get time component (0=year, 1=month, ..., 7=yearday)
-static void timeGetComponent(WrenVM* vm) {
-  double sec = wrenGetSlotDouble(vm, 1);
-  int idx = (int)wrenGetSlotDouble(vm, 2);
+static void timeGetComponent(PigeonVM* vm) {
+  double sec = pigeonGetSlotDouble(vm, 1);
+  int idx = (int)pigeonGetSlotDouble(vm, 2);
   
   time_t t = (time_t)sec;
   struct tm* tm = localtime(&t);
@@ -109,13 +109,13 @@ static void timeGetComponent(WrenVM* vm) {
     default: result = 0;
   }
   
-  wrenSetSlotDouble(vm, 0, result);
+  pigeonSetSlotDouble(vm, 0, result);
 }
 
 // Format time
-static void timeFormat(WrenVM* vm) {
-  double sec = wrenGetSlotDouble(vm, 1);
-  const char* layout = wrenGetSlotString(vm, 2);
+static void timeFormat(PigeonVM* vm) {
+  double sec = pigeonGetSlotDouble(vm, 1);
+  const char* layout = pigeonGetSlotString(vm, 2);
   
   time_t t = (time_t)sec;
   struct tm* tm = localtime(&t);
@@ -138,16 +138,16 @@ static void timeFormat(WrenVM* vm) {
     strftime(buf, sizeof(buf), "%c", tm);
   }
   
-  wrenSetSlotString(vm, 0, buf);
+  pigeonSetSlotString(vm, 0, buf);
 }
 
 #include "time.wren.inc"
 
-const char* wrenTimeSource() {
+const char* pigeonTimeSource() {
   return timeModuleSource;
 }
 
-WrenForeignMethodFn wrenTimeBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
+PigeonForeignMethodFn pigeonTimeBindForeignMethod(PigeonVM* PIGEON_MAYBE_UNUSED vm,
                                               const char* className,
                                               bool isStatic,
                                               const char* signature)

@@ -2,105 +2,105 @@
 
 #include "maps.h"
 
-static void newMap(WrenVM* vm)
+static void newMap(PigeonVM* vm)
 {
-  wrenSetSlotNewMap(vm, 0);
+  pigeonSetSlotNewMap(vm, 0);
 }
 
-static void invalidInsert(WrenVM* vm)
+static void invalidInsert(PigeonVM* vm)
 {
-  wrenSetSlotNewMap(vm, 0);
+  pigeonSetSlotNewMap(vm, 0);
   
-  wrenEnsureSlots(vm, 3);
+  pigeonEnsureSlots(vm, 3);
   // Foreign Class is in slot 1
-  wrenSetSlotString(vm, 2, "England");
-  wrenSetMapValue(vm, 0, 1, 2); // expect this to cause errors
+  pigeonSetSlotString(vm, 2, "England");
+  pigeonSetMapValue(vm, 0, 1, 2); // expect this to cause errors
 }
 
-static void insert(WrenVM* vm)
+static void insert(PigeonVM* vm)
 {
-  wrenSetSlotNewMap(vm, 0);
+  pigeonSetSlotNewMap(vm, 0);
   
-  wrenEnsureSlots(vm, 3);
+  pigeonEnsureSlots(vm, 3);
 
   // Insert String
-  wrenSetSlotString(vm, 1, "England");
-  wrenSetSlotString(vm, 2, "London");
-  wrenSetMapValue(vm, 0, 1, 2);
+  pigeonSetSlotString(vm, 1, "England");
+  pigeonSetSlotString(vm, 2, "London");
+  pigeonSetMapValue(vm, 0, 1, 2);
 
   // Insert Double
-  wrenSetSlotDouble(vm, 1, 1.0);
-  wrenSetSlotDouble(vm, 2, 42.0);
-  wrenSetMapValue(vm, 0, 1, 2);
+  pigeonSetSlotDouble(vm, 1, 1.0);
+  pigeonSetSlotDouble(vm, 2, 42.0);
+  pigeonSetMapValue(vm, 0, 1, 2);
 
   // Insert Boolean
-  wrenSetSlotBool(vm, 1, false);
-  wrenSetSlotBool(vm, 2, true);
-  wrenSetMapValue(vm, 0, 1, 2);
+  pigeonSetSlotBool(vm, 1, false);
+  pigeonSetSlotBool(vm, 2, true);
+  pigeonSetMapValue(vm, 0, 1, 2);
 
   // Insert Null
-  wrenSetSlotNull(vm, 1);
-  wrenSetSlotNull(vm, 2);
-  wrenSetMapValue(vm, 0, 1, 2);
+  pigeonSetSlotNull(vm, 1);
+  pigeonSetSlotNull(vm, 2);
+  pigeonSetMapValue(vm, 0, 1, 2);
 
   // Insert List
-  wrenSetSlotString(vm, 1, "Empty");
-  wrenSetSlotNewList(vm, 2);
-  wrenSetMapValue(vm, 0, 1, 2);
+  pigeonSetSlotString(vm, 1, "Empty");
+  pigeonSetSlotNewList(vm, 2);
+  pigeonSetMapValue(vm, 0, 1, 2);
 }
 
-static void removeKey(WrenVM* vm)
+static void removeKey(PigeonVM* vm)
 {
-  wrenEnsureSlots(vm, 3);
+  pigeonEnsureSlots(vm, 3);
 
-  wrenSetSlotString(vm, 2, "key");
-  wrenRemoveMapValue(vm, 1, 2, 0);
+  pigeonSetSlotString(vm, 2, "key");
+  pigeonRemoveMapValue(vm, 1, 2, 0);
 }
 
-static void countWren(WrenVM* vm)
+static void countWren(PigeonVM* vm)
 {
-  int count = wrenGetMapCount(vm, 1);
-  wrenSetSlotDouble(vm, 0, count);
+  int count = pigeonGetMapCount(vm, 1);
+  pigeonSetSlotDouble(vm, 0, count);
 }
 
-static void countAPI(WrenVM* vm)
+static void countAPI(PigeonVM* vm)
 {
   insert(vm);
-  int count = wrenGetMapCount(vm, 0);
-  wrenSetSlotDouble(vm, 0, count);
+  int count = pigeonGetMapCount(vm, 0);
+  pigeonSetSlotDouble(vm, 0, count);
 }
 
-static void containsWren(WrenVM* vm)
+static void containsWren(PigeonVM* vm)
 {
-  bool result = wrenGetMapContainsKey(vm, 1, 2);
-  wrenSetSlotBool(vm, 0, result);
+  bool result = pigeonGetMapContainsKey(vm, 1, 2);
+  pigeonSetSlotBool(vm, 0, result);
 }
 
 
-static void containsAPI(WrenVM* vm)
+static void containsAPI(PigeonVM* vm)
 {
   insert(vm);
   
-  wrenEnsureSlots(vm, 1);
-  wrenSetSlotString(vm, 1, "England");
+  pigeonEnsureSlots(vm, 1);
+  pigeonSetSlotString(vm, 1, "England");
 
-  bool result = wrenGetMapContainsKey(vm, 0, 1);
-  wrenSetSlotBool(vm, 0, result);
+  bool result = pigeonGetMapContainsKey(vm, 0, 1);
+  pigeonSetSlotBool(vm, 0, result);
 }
 
-static void containsAPIFalse(WrenVM* vm)
+static void containsAPIFalse(PigeonVM* vm)
 {
   insert(vm);
 
-  wrenEnsureSlots(vm, 1);
-  wrenSetSlotString(vm, 1, "DefinitelyNotARealKey");
+  pigeonEnsureSlots(vm, 1);
+  pigeonSetSlotString(vm, 1, "DefinitelyNotARealKey");
 
-  bool result = wrenGetMapContainsKey(vm, 0, 1);
-  wrenSetSlotBool(vm, 0, result);
+  bool result = pigeonGetMapContainsKey(vm, 0, 1);
+  pigeonSetSlotBool(vm, 0, result);
 }
 
 
-WrenForeignMethodFn mapsBindMethod(const char* signature)
+PigeonForeignMethodFn mapsBindMethod(const char* signature)
 {
   if (strcmp(signature, "static Maps.newMap()") == 0) return newMap;
   if (strcmp(signature, "static Maps.insert()") == 0) return insert;
@@ -115,12 +115,12 @@ WrenForeignMethodFn mapsBindMethod(const char* signature)
   return NULL;
 }
 
-void foreignAllocate(WrenVM* vm) {
-  wrenSetSlotNewForeign(vm, 0, 0, 0);
+void foreignAllocate(PigeonVM* vm) {
+  pigeonSetSlotNewForeign(vm, 0, 0, 0);
 }
 
 void mapBindClass(
-    const char* className, WrenForeignClassMethods* methods)
+    const char* className, PigeonForeignClassMethods* methods)
 {
   if (strcmp(className, "ForeignClass") == 0)
   {

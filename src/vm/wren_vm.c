@@ -8,7 +8,7 @@
   #include <sys/random.h>
 #endif
 
-#include "wren.h"
+#include "pigeon.h"
 #include "wren_common.h"
 #include "wren_compiler.h"
 #include "wren_core.h"
@@ -18,26 +18,26 @@
 
 #include "wren_iterator.h"
 
-#if WREN_OPT_META
+#if PIGEON_OPT_META
   #include "wren_opt_meta.h"
 #endif
-#if WREN_OPT_RANDOM
+#if PIGEON_OPT_RANDOM
   #include "wren_opt_random.h"
 #endif
-#if WREN_OPT_STDLIB
+#if PIGEON_OPT_STDLIB
   #include "wren_stdlib.h"
 #endif
 
-#if WREN_DEBUG_TRACE_MEMORY || WREN_DEBUG_TRACE_GC
+#if PIGEON_DEBUG_TRACE_MEMORY || PIGEON_DEBUG_TRACE_GC
   #include <time.h>
   #include <stdio.h>
 #endif
 
 
 
-int wrenGetVersionNumber() 
+int pigeonGetVersionNumber() 
 { 
-  return WREN_VERSION_NUMBER;
+  return PIGEON_VERSION_NUMBER;
 }
 
 static uint32_t generateHashSeed(void)
@@ -53,9 +53,9 @@ static uint32_t generateHashSeed(void)
   return seed;
 }
 
-void wrenInitConfiguration(WrenConfiguration* config)
+void pigeonInitConfiguration(PigeonConfiguration* config)
 {
-  config->reallocateFn = wrenDefaultReallocate;
+  config->reallocateFn = pigeonDefaultReallocate;
   config->resolveModuleFn = NULL;
   config->loadModuleFn = NULL;
   config->bindForeignMethodFn = NULL;
@@ -71,22 +71,22 @@ void wrenInitConfiguration(WrenConfiguration* config)
   config->userData = NULL;
 }
 
-WrenVM* wrenNewVM(WrenConfiguration* config)
+PigeonVM* pigeonNewVM(PigeonConfiguration* config)
 {
-  WrenReallocateFn reallocate = wrenDefaultReallocate;
+  PigeonReallocateFn reallocate = pigeonDefaultReallocate;
   void* userData = NULL;
   if (config != NULL) {
     userData = config->userData;
-    reallocate = config->reallocateFn ? config->reallocateFn : wrenDefaultReallocate;
+    reallocate = config->reallocateFn ? config->reallocateFn : pigeonDefaultReallocate;
   }
   
-  WrenVM* vm = (WrenVM*)reallocate(NULL, sizeof(*vm), userData);
-  memset(vm, 0, sizeof(WrenVM));
+  PigeonVM* vm = (PigeonVM*)reallocate(NULL, sizeof(*vm), userData);
+  memset(vm, 0, sizeof(PigeonVM));
 
   // Copy the configuration if given one.
   if (config != NULL)
   {
-    memcpy(&vm->config, config, sizeof(WrenConfiguration));
+    memcpy(&vm->config, config, sizeof(PigeonConfiguration));
 
     // We choose to set this after copying, 
     // rather than modifying the user config pointer
@@ -94,7 +94,7 @@ WrenVM* wrenNewVM(WrenConfiguration* config)
   }
   else
   {
-    wrenInitConfiguration(&vm->config);
+    pigeonInitConfiguration(&vm->config);
   }
 
   vm->grayCount = 0;
@@ -103,19 +103,19 @@ WrenVM* wrenNewVM(WrenConfiguration* config)
   vm->nextGC = vm->config.initialHeapSize;
   vm->hashSeed = generateHashSeed();
 
-  wrenSymbolTableInit(&vm->methodNames);
+  pigeonSymbolTableInit(&vm->methodNames);
 
-  vm->modules = wrenNewMap(vm);
-  wrenInitializeCore(vm);
+  vm->modules = pigeonNewMap(vm);
+  pigeonInitializeCore(vm);
 
-  vm->allocateSymbol = wrenSymbolTableEnsure(vm, &vm->methodNames,
+  vm->allocateSymbol = pigeonSymbolTableEnsure(vm, &vm->methodNames,
                                              "<allocate>", 10);
-  vm->finalizeSymbol = wrenSymbolTableEnsure(vm, &vm->methodNames,
+  vm->finalizeSymbol = pigeonSymbolTableEnsure(vm, &vm->methodNames,
                                              "<finalize>", 10);
   return vm;
 }
 
-void wrenFreeVM(WrenVM* vm)
+void pigeonFreeVM(PigeonVM* vm)
 {
   ASSERT(vm->methodNames.data.count > 0, "VM appears to have already been freed.");
   
@@ -124,7 +124,7 @@ void wrenFreeVM(WrenVM* vm)
   while (obj != NULL)
   {
     Obj* next = obj->next;
-    wrenFreeObj(vm, obj);
+    pigeonFreeObj(vm, obj);
     obj = next;
   }
 
@@ -136,14 +136,14 @@ void wrenFreeVM(WrenVM* vm)
   // may try to use. Better to tell them about the bug early.
   ASSERT(vm->handles == NULL, "All handles have not been released.");
 
-  wrenSymbolTableClear(vm, &vm->methodNames);
+  pigeonSymbolTableClear(vm, &vm->methodNames);
 
   DEALLOCATE(vm, vm);
 }
 
-void wrenCollectGarbage(WrenVM* vm)
+void pigeonCollectGarbage(PigeonVM* vm)
 {
-#if WREN_DEBUG_TRACE_MEMORY || WREN_DEBUG_TRACE_GC
+#if PIGEON_DEBUG_TRACE_MEMORY || PIGEON_DEBUG_TRACE_GC
   printf("-- gc --\n");
 
   size_t before = vm->bytesAllocated;
@@ -162,34 +162,34 @@ void wrenCollectGarbage(WrenVM* vm)
   // already been freed.
   vm->bytesAllocated = 0;
 
-  wrenGrayObj(vm, (Obj*)vm->modules);
+  pigeonGrayObj(vm, (Obj*)vm->modules);
 
   // Temporary roots.
   for (int i = 0; i < vm->numTempRoots; i++)
   {
-    wrenGrayObj(vm, vm->tempRoots[i]);
+    pigeonGrayObj(vm, vm->tempRoots[i]);
   }
 
   // The current fiber.
-  wrenGrayObj(vm, (Obj*)vm->fiber);
+  pigeonGrayObj(vm, (Obj*)vm->fiber);
 
   // The handles.
-  for (WrenHandle* handle = vm->handles;
+  for (PigeonHandle* handle = vm->handles;
        handle != NULL;
        handle = handle->next)
   {
-    wrenGrayValue(vm, handle->value);
+    pigeonGrayValue(vm, handle->value);
   }
 
   // Any object the compiler is using (if there is one).
-  if (vm->compiler != NULL) wrenMarkCompiler(vm, vm->compiler);
+  if (vm->compiler != NULL) pigeonMarkCompiler(vm, vm->compiler);
 
   // Method names.
-  wrenBlackenSymbolTable(vm, &vm->methodNames);
+  pigeonBlackenSymbolTable(vm, &vm->methodNames);
 
   // Now that we have grayed the roots, do a depth-first search over all of the
   // reachable objects.
-  wrenBlackenObjects(vm);
+  pigeonBlackenObjects(vm);
 
   // Collect the white objects.
   Obj** obj = &vm->first;
@@ -200,7 +200,7 @@ void wrenCollectGarbage(WrenVM* vm)
       // This object wasn't reached, so remove it from the list and free it.
       Obj* unreached = *obj;
       *obj = unreached->next;
-      wrenFreeObj(vm, unreached);
+      pigeonFreeObj(vm, unreached);
     }
     else
     {
@@ -216,7 +216,7 @@ void wrenCollectGarbage(WrenVM* vm)
   vm->nextGC = vm->bytesAllocated + ((vm->bytesAllocated * vm->config.heapGrowthPercent) / 100);
   if (vm->nextGC < vm->config.minHeapSize) vm->nextGC = vm->config.minHeapSize;
 
-#if WREN_DEBUG_TRACE_MEMORY || WREN_DEBUG_TRACE_GC
+#if PIGEON_DEBUG_TRACE_MEMORY || PIGEON_DEBUG_TRACE_GC
   double elapsed = ((double)clock() / CLOCKS_PER_SEC) - startTime;
   // Explicit cast because size_t has different sizes on 32-bit and 64-bit and
   // we need a consistent type for the format string.
@@ -229,9 +229,9 @@ void wrenCollectGarbage(WrenVM* vm)
 #endif
 }
 
-void* wrenReallocate(WrenVM* vm, void* memory, size_t oldSize, size_t newSize)
+void* pigeonReallocate(PigeonVM* vm, void* memory, size_t oldSize, size_t newSize)
 {
-#if WREN_DEBUG_TRACE_MEMORY
+#if PIGEON_DEBUG_TRACE_MEMORY
   // Explicit cast because size_t has different sizes on 32-bit and 64-bit and
   // we need a consistent type for the format string.
   printf("reallocate %p %lu -> %lu\n",
@@ -244,12 +244,12 @@ void* wrenReallocate(WrenVM* vm, void* memory, size_t oldSize, size_t newSize)
   // during the next GC.
   vm->bytesAllocated += newSize - oldSize;
 
-#if WREN_DEBUG_GC_STRESS
+#if PIGEON_DEBUG_GC_STRESS
   // Since collecting calls this function to free things, make sure we don't
   // recurse.
-  if (newSize > 0) wrenCollectGarbage(vm);
+  if (newSize > 0) pigeonCollectGarbage(vm);
 #else
-  if (newSize > 0 && vm->bytesAllocated > vm->nextGC) wrenCollectGarbage(vm);
+  if (newSize > 0 && vm->bytesAllocated > vm->nextGC) pigeonCollectGarbage(vm);
 #endif
 
   return vm->config.reallocateFn(memory, newSize, vm->config.userData);
@@ -260,12 +260,12 @@ void* wrenReallocate(WrenVM* vm, void* memory, size_t oldSize, size_t newSize)
 // ensure that multiple closures closing over the same variable actually see
 // the same variable.) Otherwise, it will create a new open upvalue and add it
 // the fiber's list of upvalues.
-static ObjUpvalue* captureUpvalue(WrenVM* vm, ObjFiber* fiber, Value* local)
+static ObjUpvalue* captureUpvalue(PigeonVM* vm, ObjFiber* fiber, Value* local)
 {
   // If there are no open upvalues at all, we must need a new one.
   if (fiber->openUpvalues == NULL)
   {
-    fiber->openUpvalues = wrenNewUpvalue(vm, local);
+    fiber->openUpvalues = pigeonNewUpvalue(vm, local);
     return fiber->openUpvalues;
   }
 
@@ -286,7 +286,7 @@ static ObjUpvalue* captureUpvalue(WrenVM* vm, ObjFiber* fiber, Value* local)
   // We've walked past this local on the stack, so there must not be an
   // upvalue for it already. Make a new one and link it in in the right
   // place to keep the list sorted.
-  ObjUpvalue* createdUpvalue = wrenNewUpvalue(vm, local);
+  ObjUpvalue* createdUpvalue = pigeonNewUpvalue(vm, local);
   if (prevUpvalue == NULL)
   {
     // The new one is the first one in the list.
@@ -323,13 +323,13 @@ static void closeUpvalues(ObjFiber* fiber, Value* last)
 //
 // This will try the host's foreign method binder first. If that fails, it
 // falls back to handling the built-in modules.
-static WrenForeignMethodFn findForeignMethod(WrenVM* vm,
+static PigeonForeignMethodFn findForeignMethod(PigeonVM* vm,
                                              const char* moduleName,
                                              const char* className,
                                              bool isStatic,
                                              const char* signature)
 {
-  WrenForeignMethodFn method = NULL;
+  PigeonForeignMethodFn method = NULL;
   
   if (vm->config.bindForeignMethodFn != NULL && moduleName != NULL)
   {
@@ -343,24 +343,24 @@ static WrenForeignMethodFn findForeignMethod(WrenVM* vm,
     if (moduleName == NULL)
     {
       // Core module foreign methods
-      method = wrenCoreBindForeignMethod("core", className, isStatic, signature);
+      method = pigeonCoreBindForeignMethod("core", className, isStatic, signature);
     }
-#if WREN_OPT_META
+#if PIGEON_OPT_META
     else if (strcmp(moduleName, "meta") == 0)
     {
-      method = wrenMetaBindForeignMethod(vm, className, isStatic, signature);
+      method = pigeonMetaBindForeignMethod(vm, className, isStatic, signature);
     }
 #endif
-#if WREN_OPT_RANDOM
+#if PIGEON_OPT_RANDOM
     else if (strcmp(moduleName, "random") == 0)
     {
-      method = wrenRandomBindForeignMethod(vm, className, isStatic, signature);
+      method = pigeonRandomBindForeignMethod(vm, className, isStatic, signature);
     }
 #endif
-#if WREN_OPT_STDLIB
-    else if (wrenStdlibHasModule(moduleName))
+#if PIGEON_OPT_STDLIB
+    else if (pigeonStdlibHasModule(moduleName))
     {
-      method = wrenStdlibBindForeign(vm, moduleName, className, isStatic, signature);
+      method = pigeonStdlibBindForeign(vm, moduleName, className, isStatic, signature);
     }
 #endif
   }
@@ -375,7 +375,7 @@ static WrenForeignMethodFn findForeignMethod(WrenVM* vm,
 //
 // Aborts the current fiber if the method is a foreign method that could not be
 // found.
-static void bindMethod(WrenVM* vm, int methodType, int symbol,
+static void bindMethod(PigeonVM* vm, int methodType, int symbol,
                        ObjModule* module, ObjClass* classObj, Value methodValue)
 {
   const char* className = classObj->name->value;
@@ -394,7 +394,7 @@ static void bindMethod(WrenVM* vm, int methodType, int symbol,
 
     if (method.as.foreign == NULL)
     {
-      vm->fiber->error = wrenStringFormat(vm,
+      vm->fiber->error = pigeonStringFormat(vm,
           "Could not find foreign method '@' for class $ in module '$'.",
           methodValue, classObj->name->value, 
           moduleName != NULL ? moduleName : "(core)");
@@ -407,14 +407,14 @@ static void bindMethod(WrenVM* vm, int methodType, int symbol,
     method.type = METHOD_BLOCK;
 
     // Patch up the bytecode now that we know the superclass.
-    wrenBindMethodCode(classObj, method.as.closure->fn);
+    pigeonBindMethodCode(classObj, method.as.closure->fn);
   }
 
-  wrenBindMethod(vm, classObj, symbol, method);
+  pigeonBindMethod(vm, classObj, symbol, method);
 }
 
-static void callForeign(WrenVM* vm, ObjFiber* fiber,
-                        WrenForeignMethodFn foreign, int numArgs)
+static void callForeign(PigeonVM* vm, ObjFiber* fiber,
+                        PigeonForeignMethodFn foreign, int numArgs)
 {
   ASSERT(vm->apiStack == NULL, "Cannot already be in foreign call.");
   vm->apiStack = fiber->stackTop - numArgs;
@@ -432,9 +432,9 @@ static void callForeign(WrenVM* vm, ObjFiber* fiber,
 //
 // Walks the call chain of fibers, aborting each one until it hits a fiber that
 // handles the error. If none do, tells the VM to stop.
-static void runtimeError(WrenVM* vm)
+static void runtimeError(PigeonVM* vm)
 {
-  ASSERT(wrenHasError(vm->fiber), "Should only call this after an error.");
+  ASSERT(pigeonHasError(vm->fiber), "Should only call this after an error.");
 
   ObjFiber* current = vm->fiber;
   Value error = current->error;
@@ -460,60 +460,60 @@ static void runtimeError(WrenVM* vm)
   }
 
   // If we got here, nothing caught the error, so show the stack trace.
-  wrenDebugPrintStackTrace(vm);
+  pigeonDebugPrintStackTrace(vm);
   vm->fiber = NULL;
   vm->apiStack = NULL;
 }
 
 // Aborts the current fiber with an appropriate method not found error for a
 // method with [symbol] on [classObj].
-static void methodNotFound(WrenVM* vm, ObjClass* classObj, int symbol)
+static void methodNotFound(PigeonVM* vm, ObjClass* classObj, int symbol)
 {
-  vm->fiber->error = wrenStringFormat(vm, "@ does not implement '$'.",
+  vm->fiber->error = pigeonStringFormat(vm, "@ does not implement '$'.",
       OBJ_VAL(classObj->name), vm->methodNames.data.data[symbol]->value);
 }
 
 // Looks up the previously loaded module with [name].
 //
 // Returns `NULL` if no module with that name has been loaded.
-static ObjModule* getModule(WrenVM* vm, Value name)
+static ObjModule* getModule(PigeonVM* vm, Value name)
 {
-  Value moduleValue = wrenMapGet(vm, vm->modules, name);
+  Value moduleValue = pigeonMapGet(vm, vm->modules, name);
   return !IS_UNDEFINED(moduleValue) ? AS_MODULE(moduleValue) : NULL;
 }
 
-static ObjClosure* compileInModule(WrenVM* vm, Value name, const char* source,
+static ObjClosure* compileInModule(PigeonVM* vm, Value name, const char* source,
                                    bool isExpression, bool printErrors)
 {
   // See if the module has already been loaded.
   ObjModule* module = getModule(vm, name);
   if (module == NULL)
   {
-    module = wrenNewModule(vm, AS_STRING(name));
+    module = pigeonNewModule(vm, AS_STRING(name));
 
-    // It's possible for the wrenMapSet below to resize the modules map,
+    // It's possible for the pigeonMapSet below to resize the modules map,
     // and trigger a GC while doing so. When this happens it will collect
     // the module we've just created. Once in the map it is safe.
-    wrenPushRoot(vm, (Obj*)module);
+    pigeonPushRoot(vm, (Obj*)module);
 
     // Store it in the VM's module registry so we don't load the same module
     // multiple times.
-    wrenMapSet(vm, vm->modules, name, OBJ_VAL(module));
+    pigeonMapSet(vm, vm->modules, name, OBJ_VAL(module));
 
-    wrenPopRoot(vm);
+    pigeonPopRoot(vm);
 
     // Implicitly import the core module.
     ObjModule* coreModule = getModule(vm, NULL_VAL);
     for (int i = 0; i < coreModule->variables.count; i++)
     {
-      wrenDefineVariable(vm, module,
+      pigeonDefineVariable(vm, module,
                          coreModule->variableNames.data.data[i]->value,
                          coreModule->variableNames.data.data[i]->length,
                          coreModule->variables.data[i], NULL);
     }
   }
 
-  ObjFn* fn = wrenCompile(vm, module, source, isExpression, printErrors);
+  ObjFn* fn = pigeonCompile(vm, module, source, isExpression, printErrors);
   if (fn == NULL)
   {
     // TODO: Should we still store the module even if it didn't compile?
@@ -521,9 +521,9 @@ static ObjClosure* compileInModule(WrenVM* vm, Value name, const char* source,
   }
 
   // Functions are always wrapped in closures.
-  wrenPushRoot(vm, (Obj*)fn);
-  ObjClosure* closure = wrenNewClosure(vm, fn);
-  wrenPopRoot(vm); // fn.
+  pigeonPushRoot(vm, (Obj*)fn);
+  ObjClosure* closure = pigeonNewClosure(vm, fn);
+  pigeonPopRoot(vm); // fn.
 
   return closure;
 }
@@ -536,13 +536,13 @@ static ObjClosure* compileInModule(WrenVM* vm, Value name, const char* source,
 //
 // If successful, returns `null`. Otherwise, returns a string for the runtime
 // error message.
-static Value validateSuperclass(WrenVM* vm, Value name, Value superclassValue,
+static Value validateSuperclass(PigeonVM* vm, Value name, Value superclassValue,
                                 int numFields)
 {
   // Make sure the superclass is a class.
   if (!IS_CLASS(superclassValue))
   {
-    return wrenStringFormat(vm,
+    return pigeonStringFormat(vm,
         "Class '@' cannot inherit from a non-class object.",
         name);
   }
@@ -562,28 +562,28 @@ static Value validateSuperclass(WrenVM* vm, Value name, Value superclassValue,
       superclass == vm->nullClass ||
       superclass == vm->numClass)
   {
-    return wrenStringFormat(vm,
+    return pigeonStringFormat(vm,
         "Class '@' cannot inherit from built-in class '@'.",
         name, OBJ_VAL(superclass->name));
   }
 
   if (superclass->numFields == -1)
   {
-    return wrenStringFormat(vm,
+    return pigeonStringFormat(vm,
         "Class '@' cannot inherit from foreign class '@'.",
         name, OBJ_VAL(superclass->name));
   }
 
   if (numFields == -1 && superclass->numFields > 0)
   {
-    return wrenStringFormat(vm,
+    return pigeonStringFormat(vm,
         "Foreign class '@' may not inherit from a class with fields.",
         name);
   }
 
   if (superclass->numFields + numFields > MAX_FIELDS)
   {
-    return wrenStringFormat(vm,
+    return pigeonStringFormat(vm,
         "Class '@' may not have more than 255 fields, including inherited "
         "ones.", name);
   }
@@ -591,9 +591,9 @@ static Value validateSuperclass(WrenVM* vm, Value name, Value superclassValue,
   return NULL_VAL;
 }
 
-static void bindForeignClass(WrenVM* vm, ObjClass* classObj, ObjModule* module)
+static void bindForeignClass(PigeonVM* vm, ObjClass* classObj, ObjModule* module)
 {
-  WrenForeignClassMethods methods;
+  PigeonForeignClassMethods methods;
   methods.allocate = NULL;
   methods.finalize = NULL;
   
@@ -611,19 +611,19 @@ static void bindForeignClass(WrenVM* vm, ObjClass* classObj, ObjModule* module)
     if (module->name == NULL)
     {
       // Core module foreign classes
-      methods = wrenCoreBindForeignClass(vm, classObj->name->value);
+      methods = pigeonCoreBindForeignClass(vm, classObj->name->value);
     }
-#if WREN_OPT_RANDOM
+#if PIGEON_OPT_RANDOM
     else if (strcmp(module->name->value, "random") == 0)
     {
-      methods = wrenRandomBindForeignClass(vm, module->name->value,
+      methods = pigeonRandomBindForeignClass(vm, module->name->value,
                                            classObj->name->value);
     }
 #endif
-#if WREN_OPT_STDLIB
-    else if (wrenStdlibHasModule(module->name->value))
+#if PIGEON_OPT_STDLIB
+    else if (pigeonStdlibHasModule(module->name->value))
     {
-      methods = wrenStdlibBindForeignClass(vm, module->name->value,
+      methods = pigeonStdlibBindForeignClass(vm, module->name->value,
                                            classObj->name->value);
     }
 #endif
@@ -636,14 +636,14 @@ static void bindForeignClass(WrenVM* vm, ObjClass* classObj, ObjModule* module)
   if (methods.allocate != NULL)
   {
     method.as.foreign = methods.allocate;
-    wrenBindMethod(vm, classObj, symbol, method);
+    pigeonBindMethod(vm, classObj, symbol, method);
   }
 
   symbol = vm->finalizeSymbol;
   if (methods.finalize != NULL)
   {
-    method.as.foreign = (WrenForeignMethodFn)methods.finalize;
-    wrenBindMethod(vm, classObj, symbol, method);
+    method.as.foreign = (PigeonForeignMethodFn)methods.finalize;
+    pigeonBindMethod(vm, classObj, symbol, method);
   }
 }
 
@@ -655,7 +655,7 @@ static void bindForeignClass(WrenVM* vm, ObjClass* classObj, ObjModule* module)
 // This process handles moving the attribute data for a class from
 // compile time to runtime, since it now has all the attributes associated
 // with a class, including for methods.
-static void endClass(WrenVM* vm) 
+static void endClass(PigeonVM* vm) 
 {
   // Pull the attributes and class off the stack
   Value attributes = vm->fiber->stackTop[-2];
@@ -675,7 +675,7 @@ static void endClass(WrenVM* vm)
 // stack will contain the new class.
 //
 // Aborts the current fiber if an error occurs.
-static void createClass(WrenVM* vm, int numFields, ObjModule* module)
+static void createClass(PigeonVM* vm, int numFields, ObjModule* module)
 {
   // Pull the name and superclass off the stack.
   Value name = vm->fiber->stackTop[-2];
@@ -686,16 +686,16 @@ static void createClass(WrenVM* vm, int numFields, ObjModule* module)
   vm->fiber->stackTop--;
 
   vm->fiber->error = validateSuperclass(vm, name, superclass, numFields);
-  if (wrenHasError(vm->fiber)) return;
+  if (pigeonHasError(vm->fiber)) return;
 
-  ObjClass* classObj = wrenNewClass(vm, AS_CLASS(superclass), numFields,
+  ObjClass* classObj = pigeonNewClass(vm, AS_CLASS(superclass), numFields,
                                     AS_STRING(name));
   vm->fiber->stackTop[-1] = OBJ_VAL(classObj);
 
   if (numFields == -1) bindForeignClass(vm, classObj, module);
 }
 
-static void createForeign(WrenVM* vm, ObjFiber* WREN_MAYBE_UNUSED fiber, Value* stack)
+static void createForeign(PigeonVM* vm, ObjFiber* PIGEON_MAYBE_UNUSED fiber, Value* stack)
 {
   ObjClass* classObj = AS_CLASS(stack[0]);
   ASSERT(classObj->numFields == -1, "Class must be a foreign class.");
@@ -716,7 +716,7 @@ static void createForeign(WrenVM* vm, ObjFiber* WREN_MAYBE_UNUSED fiber, Value* 
   vm->apiStack = NULL;
 }
 
-void wrenFinalizeForeign(WrenVM* vm, ObjForeign* foreign)
+void pigeonFinalizeForeign(PigeonVM* vm, ObjForeign* foreign)
 {
   int symbol = vm->finalizeSymbol;
   ASSERT(symbol != -1, "Should have defined <finalize> symbol.");
@@ -730,12 +730,12 @@ void wrenFinalizeForeign(WrenVM* vm, ObjForeign* foreign)
 
   ASSERT(method->type == METHOD_FOREIGN, "Finalizer should be foreign.");
 
-  WrenFinalizerFn finalizer = (WrenFinalizerFn)method->as.foreign;
+  PigeonFinalizerFn finalizer = (PigeonFinalizerFn)method->as.foreign;
   finalizer(foreign->data);
 }
 
 // Let the host resolve an imported module name if it wants to.
-static Value resolveModule(WrenVM* vm, Value name)
+static Value resolveModule(PigeonVM* vm, Value name)
 {
   // If the host doesn't care to resolve, leave the name alone.
   if (vm->config.resolveModuleFn == NULL) return name;
@@ -748,7 +748,7 @@ static Value resolveModule(WrenVM* vm, Value name)
                                                     AS_CSTRING(name));
   if (resolved == NULL)
   {
-    vm->fiber->error = wrenStringFormat(vm,
+    vm->fiber->error = pigeonStringFormat(vm,
         "Could not resolve module '@' imported from '@'.",
         name, OBJ_VAL(importer));
     return NULL_VAL;
@@ -759,22 +759,22 @@ static Value resolveModule(WrenVM* vm, Value name)
 
   // Copy the string into a Wren String object. resolveModuleFn returns host
   // memory (typically malloc); it is not a Memento block.
-  name = wrenNewString(vm, resolved);
+  name = pigeonNewString(vm, resolved);
   free((char*)resolved);
   return name;
 }
 
-static Value importModule(WrenVM* vm, Value name)
+static Value importModule(PigeonVM* vm, Value name)
 {
   name = resolveModule(vm, name);
   
   // If the module is already loaded, we don't need to do anything.
-  Value existing = wrenMapGet(vm, vm->modules, name);
+  Value existing = pigeonMapGet(vm, vm->modules, name);
   if (!IS_UNDEFINED(existing)) return existing;
 
-  wrenPushRoot(vm, AS_OBJ(name));
+  pigeonPushRoot(vm, AS_OBJ(name));
 
-  WrenLoadModuleResult result = {0};
+  PigeonLoadModuleResult result = {0};
   
   // Let the host try to provide the module.
   if (vm->config.loadModuleFn != NULL)
@@ -787,23 +787,23 @@ static Value importModule(WrenVM* vm, Value name)
   {
     result.onComplete = NULL;
     ObjString* nameString = AS_STRING(name);
-#if WREN_OPT_META
-    if (strcmp(nameString->value, "meta") == 0) result.source = wrenMetaSource();
+#if PIGEON_OPT_META
+    if (strcmp(nameString->value, "meta") == 0) result.source = pigeonMetaSource();
 #endif
-#if WREN_OPT_RANDOM
-    if (strcmp(nameString->value, "random") == 0) result.source = wrenRandomSource();
+#if PIGEON_OPT_RANDOM
+    if (strcmp(nameString->value, "random") == 0) result.source = pigeonRandomSource();
 #endif
-#if WREN_OPT_STDLIB
+#if PIGEON_OPT_STDLIB
     if (result.source == NULL) {
-      result.source = wrenStdlibLoadModule(nameString->value);
+      result.source = pigeonStdlibLoadModule(nameString->value);
     }
 #endif
   }
   
   if (result.source == NULL)
   {
-    vm->fiber->error = wrenStringFormat(vm, "Could not load module '@'.", name);
-    wrenPopRoot(vm); // name.
+    vm->fiber->error = pigeonStringFormat(vm, "Could not load module '@'.", name);
+    pigeonPopRoot(vm); // name.
     return NULL_VAL;
   }
   
@@ -814,23 +814,23 @@ static Value importModule(WrenVM* vm, Value name)
   
   if (moduleClosure == NULL)
   {
-    vm->fiber->error = wrenStringFormat(vm,
+    vm->fiber->error = pigeonStringFormat(vm,
                                         "Could not compile module '@'.", name);
-    wrenPopRoot(vm); // name.
+    pigeonPopRoot(vm); // name.
     return NULL_VAL;
   }
 
-  wrenPopRoot(vm); // name.
+  pigeonPopRoot(vm); // name.
 
   // Return the closure that executes the module.
   return OBJ_VAL(moduleClosure);
 }
 
-static Value getModuleVariable(WrenVM* vm, ObjModule* module,
+static Value getModuleVariable(PigeonVM* vm, ObjModule* module,
                                Value variableName)
 {
   ObjString* variable = AS_STRING(variableName);
-  uint32_t variableEntry = wrenSymbolTableFind(&module->variableNames,
+  uint32_t variableEntry = pigeonSymbolTableFind(&module->variableNames,
                                                variable->value,
                                                variable->length);
   
@@ -840,13 +840,13 @@ static Value getModuleVariable(WrenVM* vm, ObjModule* module,
     return module->variables.data[variableEntry];
   }
   
-  vm->fiber->error = wrenStringFormat(vm,
+  vm->fiber->error = pigeonStringFormat(vm,
       "Could not find a variable named '@' in module '@'.",
       variableName, OBJ_VAL(module->name));
   return NULL_VAL;
 }
 
-inline static bool checkArity(WrenVM* vm, Value value, int numArgs)
+inline static bool checkArity(PigeonVM* vm, Value value, int numArgs)
 {
   ASSERT(IS_CLOSURE(value), "Receiver must be a closure.");
   ObjFn* fn = AS_CLOSURE(value)->fn;
@@ -863,7 +863,7 @@ inline static bool checkArity(WrenVM* vm, Value value, int numArgs)
 
 // The main bytecode interpreter loop. This is where the magic happens. It is
 // also, as you can imagine, highly performance critical.
-static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
+static PigeonInterpretResult runInterpreter(PigeonVM* vm, register ObjFiber* fiber)
 {
   // Remember the current fiber so we can find it if a GC happens.
   vm->fiber = fiber;
@@ -909,25 +909,25 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
       {                                                                        \
         STORE_FRAME();                                                         \
         runtimeError(vm);                                                      \
-        if (vm->fiber == NULL) return WREN_RESULT_RUNTIME_ERROR;               \
+        if (vm->fiber == NULL) return PIGEON_RESULT_RUNTIME_ERROR;               \
         fiber = vm->fiber;                                                     \
         LOAD_FRAME();                                                          \
         DISPATCH();                                                            \
       } while (false)
 
-  #if WREN_DEBUG_TRACE_INSTRUCTIONS
+  #if PIGEON_DEBUG_TRACE_INSTRUCTIONS
     // Prints the stack and instruction before each instruction is executed.
     #define DEBUG_TRACE_INSTRUCTIONS()                                         \
         do                                                                     \
         {                                                                      \
-          wrenDumpStack(fiber);                                                \
-          wrenDumpInstruction(vm, fn, (int)(ip - fn->code.data));              \
+          pigeonDumpStack(fiber);                                                \
+          pigeonDumpInstruction(vm, fn, (int)(ip - fn->code.data));              \
         } while (false)
   #else
     #define DEBUG_TRACE_INSTRUCTIONS() do { } while (false)
   #endif
 
-  #if WREN_COMPUTED_GOTO
+  #if PIGEON_COMPUTED_GOTO
 
   static void* dispatchTable[] = {
     #define OPCODE(name, _) &&code_##name,
@@ -1027,9 +1027,9 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
         DISPATCH();
       }
       numArgs = 2;
-      symbol = wrenSymbolTableFind(&vm->methodNames, "+(_)", 4);
+      symbol = pigeonSymbolTableFind(&vm->methodNames, "+(_)", 4);
       args = fiber->stackTop - 2;
-      classObj = wrenGetClassInline(vm, args[0]);
+      classObj = pigeonGetClassInline(vm, args[0]);
       goto completeCall;
 
     CASE_CODE(SUB):
@@ -1040,9 +1040,9 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
         DISPATCH();
       }
       numArgs = 2;
-      symbol = wrenSymbolTableFind(&vm->methodNames, "-(_)", 4);
+      symbol = pigeonSymbolTableFind(&vm->methodNames, "-(_)", 4);
       args = fiber->stackTop - 2;
-      classObj = wrenGetClassInline(vm, args[0]);
+      classObj = pigeonGetClassInline(vm, args[0]);
       goto completeCall;
 
     CASE_CODE(MUL):
@@ -1053,9 +1053,9 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
         DISPATCH();
       }
       numArgs = 2;
-      symbol = wrenSymbolTableFind(&vm->methodNames, "*(_)", 4);
+      symbol = pigeonSymbolTableFind(&vm->methodNames, "*(_)", 4);
       args = fiber->stackTop - 2;
-      classObj = wrenGetClassInline(vm, args[0]);
+      classObj = pigeonGetClassInline(vm, args[0]);
       goto completeCall;
 
     CASE_CODE(DIV):
@@ -1066,9 +1066,9 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
         DISPATCH();
       }
       numArgs = 2;
-      symbol = wrenSymbolTableFind(&vm->methodNames, "/(_)", 4);
+      symbol = pigeonSymbolTableFind(&vm->methodNames, "/(_)", 4);
       args = fiber->stackTop - 2;
-      classObj = wrenGetClassInline(vm, args[0]);
+      classObj = pigeonGetClassInline(vm, args[0]);
       goto completeCall;
 
     CASE_CODE(LT):
@@ -1079,9 +1079,9 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
         DISPATCH();
       }
       numArgs = 2;
-      symbol = wrenSymbolTableFind(&vm->methodNames, "<(_)", 4);
+      symbol = pigeonSymbolTableFind(&vm->methodNames, "<(_)", 4);
       args = fiber->stackTop - 2;
-      classObj = wrenGetClassInline(vm, args[0]);
+      classObj = pigeonGetClassInline(vm, args[0]);
       goto completeCall;
 
     CASE_CODE(GT):
@@ -1092,9 +1092,9 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
         DISPATCH();
       }
       numArgs = 2;
-      symbol = wrenSymbolTableFind(&vm->methodNames, ">(_)", 4);
+      symbol = pigeonSymbolTableFind(&vm->methodNames, ">(_)", 4);
       args = fiber->stackTop - 2;
-      classObj = wrenGetClassInline(vm, args[0]);
+      classObj = pigeonGetClassInline(vm, args[0]);
       goto completeCall;
 
     CASE_CODE(LTE):
@@ -1105,9 +1105,9 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
         DISPATCH();
       }
       numArgs = 2;
-      symbol = wrenSymbolTableFind(&vm->methodNames, "<=(_)", 5);
+      symbol = pigeonSymbolTableFind(&vm->methodNames, "<=(_)", 5);
       args = fiber->stackTop - 2;
-      classObj = wrenGetClassInline(vm, args[0]);
+      classObj = pigeonGetClassInline(vm, args[0]);
       goto completeCall;
 
     CASE_CODE(GTE):
@@ -1118,9 +1118,9 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
         DISPATCH();
       }
       numArgs = 2;
-      symbol = wrenSymbolTableFind(&vm->methodNames, ">=(_)", 5);
+      symbol = pigeonSymbolTableFind(&vm->methodNames, ">=(_)", 5);
       args = fiber->stackTop - 2;
-      classObj = wrenGetClassInline(vm, args[0]);
+      classObj = pigeonGetClassInline(vm, args[0]);
       goto completeCall;
 
     CASE_CODE(CALL_0):
@@ -1146,7 +1146,7 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
 
       // The receiver is the first argument.
       args = fiber->stackTop - numArgs;
-      classObj = wrenGetClassInline(vm, args[0]);
+      classObj = pigeonGetClassInline(vm, args[0]);
       goto completeCall;
 
     CASE_CODE(SUPER_0):
@@ -1224,8 +1224,8 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
 
             // If we don't have a fiber to switch to, stop interpreting.
             fiber = vm->fiber;
-            if (fiber == NULL) return WREN_RESULT_SUCCESS;
-            if (wrenHasError(fiber)) RUNTIME_ERROR();
+            if (fiber == NULL) return PIGEON_RESULT_SUCCESS;
+            if (pigeonHasError(fiber)) RUNTIME_ERROR();
             LOAD_FRAME();
           }
           break;
@@ -1243,12 +1243,12 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
 
         case METHOD_FOREIGN:
           callForeign(vm, fiber, method->as.foreign, numArgs);
-          if (wrenHasError(fiber)) RUNTIME_ERROR();
+          if (pigeonHasError(fiber)) RUNTIME_ERROR();
           break;
 
         case METHOD_BLOCK:
           STORE_FRAME();
-          wrenCallFunction(vm, fiber, (ObjClosure*)method->as.closure, numArgs);
+          pigeonCallFunction(vm, fiber, (ObjClosure*)method->as.closure, numArgs);
           LOAD_FRAME();
           break;
 
@@ -1334,7 +1334,7 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
       uint16_t offset = READ_SHORT();
       Value condition = POP();
 
-      if (wrenIsFalsyValue(condition)) ip += offset;
+      if (pigeonIsFalsyValue(condition)) ip += offset;
       DISPATCH();
     }
 
@@ -1343,7 +1343,7 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
       uint16_t offset = READ_SHORT();
       Value condition = PEEK();
 
-      if (wrenIsFalsyValue(condition))
+      if (pigeonIsFalsyValue(condition))
       {
         // Short-circuit the right hand side.
         ip += offset;
@@ -1361,7 +1361,7 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
       uint16_t offset = READ_SHORT();
       Value condition = PEEK();
 
-      if (wrenIsFalsyValue(condition))
+      if (pigeonIsFalsyValue(condition))
       {
         // Discard the condition and evaluate the right hand side.
         DROP();
@@ -1398,7 +1398,7 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
           // C API can get it.
           fiber->stack[0] = result;
           fiber->stackTop = fiber->stack + 1;
-          return WREN_RESULT_SUCCESS;
+          return PIGEON_RESULT_SUCCESS;
         }
         
         ObjFiber* resumingFiber = fiber->caller;
@@ -1426,13 +1426,13 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
 
     CASE_CODE(CONSTRUCT):
       ASSERT(IS_CLASS(stackStart[0]), "'this' should be a class.");
-      stackStart[0] = wrenNewInstance(vm, AS_CLASS(stackStart[0]));
+      stackStart[0] = pigeonNewInstance(vm, AS_CLASS(stackStart[0]));
       DISPATCH();
 
     CASE_CODE(FOREIGN_CONSTRUCT):
       ASSERT(IS_CLASS(stackStart[0]), "'this' should be a class.");
       createForeign(vm, fiber, stackStart);
-      if (wrenHasError(fiber)) RUNTIME_ERROR();
+      if (pigeonHasError(fiber)) RUNTIME_ERROR();
       DISPATCH();
 
     CASE_CODE(CLOSURE):
@@ -1440,7 +1440,7 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
       // Create the closure and push it on the stack before creating upvalues
       // so that it doesn't get collected.
       ObjFn* function = AS_FN(fn->constants.data[READ_SHORT()]);
-      ObjClosure* closure = wrenNewClosure(vm, function);
+      ObjClosure* closure = pigeonNewClosure(vm, function);
       PUSH(OBJ_VAL(closure));
 
       // Capture upvalues, if any.
@@ -1466,21 +1466,21 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
     CASE_CODE(END_CLASS):
     {
       endClass(vm);
-      if (wrenHasError(fiber)) RUNTIME_ERROR();
+      if (pigeonHasError(fiber)) RUNTIME_ERROR();
       DISPATCH();
     }
 
     CASE_CODE(CLASS):
     {
       createClass(vm, READ_BYTE(), NULL);
-      if (wrenHasError(fiber)) RUNTIME_ERROR();
+      if (pigeonHasError(fiber)) RUNTIME_ERROR();
       DISPATCH();
     }
 
     CASE_CODE(FOREIGN_CLASS):
     {
       createClass(vm, -1, fn->module);
-      if (wrenHasError(fiber)) RUNTIME_ERROR();
+      if (pigeonHasError(fiber)) RUNTIME_ERROR();
       DISPATCH();
     }
 
@@ -1491,7 +1491,7 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
       ObjClass* classObj = AS_CLASS(PEEK());
       Value method = PEEK2();
       bindMethod(vm, instruction, symbol, fn->module, classObj, method);
-      if (wrenHasError(fiber)) RUNTIME_ERROR();
+      if (pigeonHasError(fiber)) RUNTIME_ERROR();
       DROP();
       DROP();
       DISPATCH();
@@ -1511,14 +1511,14 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
       // imported module's closure in the slot in case a GC happens when
       // invoking the closure.
       PUSH(importModule(vm, fn->constants.data[READ_SHORT()]));
-      if (wrenHasError(fiber)) RUNTIME_ERROR();
+      if (pigeonHasError(fiber)) RUNTIME_ERROR();
       
       // If we get a closure, call it to execute the module body.
       if (IS_CLOSURE(PEEK()))
       {
         STORE_FRAME();
         ObjClosure* closure = AS_CLOSURE(PEEK());
-        wrenCallFunction(vm, fiber, closure, 1);
+        pigeonCallFunction(vm, fiber, closure, 1);
         LOAD_FRAME();
       }
       else
@@ -1536,7 +1536,7 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
       Value variable = fn->constants.data[READ_SHORT()];
       ASSERT(vm->lastModule != NULL, "Should have already imported module.");
       Value result = getModuleVariable(vm, vm->lastModule, variable);
-      if (wrenHasError(fiber)) RUNTIME_ERROR();
+      if (pigeonHasError(fiber)) RUNTIME_ERROR();
 
       PUSH(result);
       DISPATCH();
@@ -1551,13 +1551,13 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
   // We should only exit this function from an explicit return from CODE_RETURN
   // or a runtime error.
   UNREACHABLE();
-  return WREN_RESULT_RUNTIME_ERROR;
+  return PIGEON_RESULT_RUNTIME_ERROR;
 
   #undef READ_BYTE
   #undef READ_SHORT
 }
 
-WrenHandle* wrenMakeCallHandle(WrenVM* vm, const char* signature)
+PigeonHandle* pigeonMakeCallHandle(PigeonVM* vm, const char* signature)
 {
   ASSERT(signature != NULL, "Signature cannot be NULL.");
   
@@ -1584,31 +1584,31 @@ WrenHandle* wrenMakeCallHandle(WrenVM* vm, const char* signature)
   }
   
   // Add the signatue to the method table.
-  int method =  wrenSymbolTableEnsure(vm, &vm->methodNames,
+  int method =  pigeonSymbolTableEnsure(vm, &vm->methodNames,
                                       signature, signatureLength);
   ASSERT(method <= MAX_METHODS, "Method limit reached.");
   
   // Create a little stub function that assumes the arguments are on the stack
   // and calls the method.
-  ObjFn* fn = wrenNewFunction(vm, NULL, numParams + 1);
+  ObjFn* fn = pigeonNewFunction(vm, NULL, numParams + 1);
   
   // Wrap the function in a closure and then in a handle. Do this here so it
   // doesn't get collected as we fill it in.
-  WrenHandle* value = wrenMakeHandle(vm, OBJ_VAL(fn));
-  value->value = OBJ_VAL(wrenNewClosure(vm, fn));
+  PigeonHandle* value = pigeonMakeHandle(vm, OBJ_VAL(fn));
+  value->value = OBJ_VAL(pigeonNewClosure(vm, fn));
   
-  wrenByteBufferWrite(vm, &fn->code, (uint8_t)(CODE_CALL_0 + numParams));
-  wrenByteBufferWrite(vm, &fn->code, (method >> 8) & 0xff);
-  wrenByteBufferWrite(vm, &fn->code, method & 0xff);
-  wrenByteBufferWrite(vm, &fn->code, CODE_RETURN);
-  wrenByteBufferWrite(vm, &fn->code, CODE_END);
-  wrenIntBufferFill(vm, &fn->debug->sourceLines, 0, 5);
-  wrenFunctionBindName(vm, fn, signature, signatureLength);
+  pigeonByteBufferWrite(vm, &fn->code, (uint8_t)(CODE_CALL_0 + numParams));
+  pigeonByteBufferWrite(vm, &fn->code, (method >> 8) & 0xff);
+  pigeonByteBufferWrite(vm, &fn->code, method & 0xff);
+  pigeonByteBufferWrite(vm, &fn->code, CODE_RETURN);
+  pigeonByteBufferWrite(vm, &fn->code, CODE_END);
+  pigeonIntBufferFill(vm, &fn->debug->sourceLines, 0, 5);
+  pigeonFunctionBindName(vm, fn, signature, signatureLength);
 
   return value;
 }
 
-WrenInterpretResult wrenCall(WrenVM* vm, WrenHandle* method)
+PigeonInterpretResult pigeonCall(PigeonVM* vm, PigeonHandle* method)
 {
   ASSERT(method != NULL, "Method cannot be NULL.");
   ASSERT(IS_CLOSURE(method->value), "Method must be a method handle.");
@@ -1621,18 +1621,18 @@ WrenInterpretResult wrenCall(WrenVM* vm, WrenHandle* method)
   ASSERT(vm->fiber->stackTop - vm->fiber->stack >= closure->fn->arity,
          "Stack must have enough arguments for method.");
   
-  // Clear the API stack. Now that wrenCall() has control, we no longer need
+  // Clear the API stack. Now that pigeonCall() has control, we no longer need
   // it. We use this being non-null to tell if re-entrant calls to foreign
   // methods are happening, so it's important to clear it out now so that you
-  // can call foreign methods from within calls to wrenCall().
+  // can call foreign methods from within calls to pigeonCall().
   vm->apiStack = NULL;
 
   // Discard any extra temporary slots. We take for granted that the stub
   // function has exactly one slot for each argument.
   vm->fiber->stackTop = &vm->fiber->stack[closure->fn->maxSlots];
   
-  wrenCallFunction(vm, vm->fiber, closure, 0);
-  WrenInterpretResult result = runInterpreter(vm, vm->fiber);
+  pigeonCallFunction(vm, vm->fiber, closure, 0);
+  PigeonInterpretResult result = runInterpreter(vm, vm->fiber);
   
   // If the call didn't abort, then set up the API stack to point to the
   // beginning of the stack so the host can access the call's return value.
@@ -1641,15 +1641,15 @@ WrenInterpretResult wrenCall(WrenVM* vm, WrenHandle* method)
   return result;
 }
 
-WrenHandle* wrenMakeHandle(WrenVM* vm, Value value)
+PigeonHandle* pigeonMakeHandle(PigeonVM* vm, Value value)
 {
-  if (IS_OBJ(value)) wrenPushRoot(vm, AS_OBJ(value));
+  if (IS_OBJ(value)) pigeonPushRoot(vm, AS_OBJ(value));
   
   // Make a handle for it.
-  WrenHandle* handle = ALLOCATE(vm, WrenHandle);
+  PigeonHandle* handle = ALLOCATE(vm, PigeonHandle);
   handle->value = value;
 
-  if (IS_OBJ(value)) wrenPopRoot(vm);
+  if (IS_OBJ(value)) pigeonPopRoot(vm);
 
   // Add it to the front of the linked list of handles.
   if (vm->handles != NULL) vm->handles->prev = handle;
@@ -1660,7 +1660,7 @@ WrenHandle* wrenMakeHandle(WrenVM* vm, Value value)
   return handle;
 }
 
-void wrenReleaseHandle(WrenVM* vm, WrenHandle* handle)
+void pigeonReleaseHandle(PigeonVM* vm, PigeonHandle* handle)
 {
   ASSERT(handle != NULL, "Handle cannot be NULL.");
 
@@ -1679,60 +1679,60 @@ void wrenReleaseHandle(WrenVM* vm, WrenHandle* handle)
   DEALLOCATE(vm, handle);
 }
 
-static WrenInterpretResult interpretInPlace(WrenVM* vm, const char* module,
+static PigeonInterpretResult interpretInPlace(PigeonVM* vm, const char* module,
                                             const char* source)
 {
-  ObjClosure* closure = wrenCompileSource(vm, module, source, false, true);
-  if (closure == NULL) return WREN_RESULT_COMPILE_ERROR;
+  ObjClosure* closure = pigeonCompileSource(vm, module, source, false, true);
+  if (closure == NULL) return PIGEON_RESULT_COMPILE_ERROR;
 
-  wrenPushRoot(vm, (Obj*)closure);
-  ObjFiber* fiber = wrenNewFiber(vm, closure);
-  wrenPopRoot(vm);
+  pigeonPushRoot(vm, (Obj*)closure);
+  ObjFiber* fiber = pigeonNewFiber(vm, closure);
+  pigeonPopRoot(vm);
   vm->apiStack = NULL;
   return runInterpreter(vm, fiber);
 }
 
-WrenInterpretResult wrenInterpret(WrenVM* vm, const char* module,
+PigeonInterpretResult pigeonInterpret(PigeonVM* vm, const char* module,
                                   const char* source)
 {
   vm->interpretNestingLevel++;
-  WrenInterpretResult result = interpretInPlace(vm, module, source);
+  PigeonInterpretResult result = interpretInPlace(vm, module, source);
 
   // Outermost return: drop any leftover Generator iterators. No Suspenders
   // host loop unless a later I/O path opts in — Generator is a C state machine.
   if (vm->interpretNestingLevel == 1)
   {
-    wrenGeneratorDetachAll(vm);
-    wrenIteratorReleaseAll(vm);
+    pigeonGeneratorDetachAll(vm);
+    pigeonIteratorReleaseAll(vm);
   }
 
   vm->interpretNestingLevel--;
   return result;
 }
 
-ObjClosure* wrenCompileSource(WrenVM* vm, const char* module, const char* source,
+ObjClosure* pigeonCompileSource(PigeonVM* vm, const char* module, const char* source,
                             bool isExpression, bool printErrors)
 {
   Value nameValue = NULL_VAL;
   if (module != NULL)
   {
-    nameValue = wrenNewString(vm, module);
-    wrenPushRoot(vm, AS_OBJ(nameValue));
+    nameValue = pigeonNewString(vm, module);
+    pigeonPushRoot(vm, AS_OBJ(nameValue));
   }
   
   ObjClosure* closure = compileInModule(vm, nameValue, source,
                                         isExpression, printErrors);
 
-  if (module != NULL) wrenPopRoot(vm); // nameValue.
+  if (module != NULL) pigeonPopRoot(vm); // nameValue.
   return closure;
 }
 
-Value wrenGetModuleVariable(WrenVM* vm, Value moduleName, Value variableName)
+Value pigeonGetModuleVariable(PigeonVM* vm, Value moduleName, Value variableName)
 {
   ObjModule* module = getModule(vm, moduleName);
   if (module == NULL)
   {
-    vm->fiber->error = wrenStringFormat(vm, "Module '@' is not loaded.",
+    vm->fiber->error = pigeonStringFormat(vm, "Module '@' is not loaded.",
                                         moduleName);
     return NULL_VAL;
   }
@@ -1740,13 +1740,13 @@ Value wrenGetModuleVariable(WrenVM* vm, Value moduleName, Value variableName)
   return getModuleVariable(vm, module, variableName);
 }
 
-Value wrenFindVariable(WrenVM* WREN_MAYBE_UNUSED vm, ObjModule* module, const char* name)
+Value pigeonFindVariable(PigeonVM* PIGEON_MAYBE_UNUSED vm, ObjModule* module, const char* name)
 {
-  int symbol = wrenSymbolTableFind(&module->variableNames, name, strlen(name));
+  int symbol = pigeonSymbolTableFind(&module->variableNames, name, strlen(name));
   return module->variables.data[symbol];
 }
 
-int wrenDeclareVariable(WrenVM* vm, ObjModule* module, const char* name,
+int pigeonDeclareVariable(PigeonVM* vm, ObjModule* module, const char* name,
                         size_t length, int line)
 {
   if (module->variables.count == MAX_MODULE_VARS) return -2;
@@ -1754,25 +1754,25 @@ int wrenDeclareVariable(WrenVM* vm, ObjModule* module, const char* name,
   // Implicitly defined variables get a "value" that is the line where the
   // variable is first used. We'll use that later to report an error on the
   // right line.
-  wrenValueBufferWrite(vm, &module->variables, NUM_VAL(line));
-  return wrenSymbolTableAdd(vm, &module->variableNames, name, length);
+  pigeonValueBufferWrite(vm, &module->variables, NUM_VAL(line));
+  return pigeonSymbolTableAdd(vm, &module->variableNames, name, length);
 }
 
-int wrenDefineVariable(WrenVM* vm, ObjModule* module, const char* name,
+int pigeonDefineVariable(PigeonVM* vm, ObjModule* module, const char* name,
                        size_t length, Value value, int* line)
 {
   if (module->variables.count == MAX_MODULE_VARS) return -2;
 
-  if (IS_OBJ(value)) wrenPushRoot(vm, AS_OBJ(value));
+  if (IS_OBJ(value)) pigeonPushRoot(vm, AS_OBJ(value));
 
   // See if the variable is already explicitly or implicitly declared.
-  int symbol = wrenSymbolTableFind(&module->variableNames, name, length);
+  int symbol = pigeonSymbolTableFind(&module->variableNames, name, length);
 
   if (symbol == -1)
   {
     // Brand new variable.
-    symbol = wrenSymbolTableAdd(vm, &module->variableNames, name, length);
-    wrenValueBufferWrite(vm, &module->variables, value);
+    symbol = pigeonSymbolTableAdd(vm, &module->variableNames, name, length);
+    pigeonValueBufferWrite(vm, &module->variables, value);
   }
   else if (IS_NUM(module->variables.data[symbol]))
   {
@@ -1783,7 +1783,7 @@ int wrenDefineVariable(WrenVM* vm, ObjModule* module, const char* name,
 
 	// If this was a localname we want to error if it was 
 	// referenced before this definition.
-	if (wrenIsLocalName(name)) symbol = -3;
+	if (pigeonIsLocalName(name)) symbol = -3;
   }
   else
   {
@@ -1791,39 +1791,39 @@ int wrenDefineVariable(WrenVM* vm, ObjModule* module, const char* name,
     symbol = -1;
   }
 
-  if (IS_OBJ(value)) wrenPopRoot(vm);
+  if (IS_OBJ(value)) pigeonPopRoot(vm);
 
   return symbol;
 }
 
 // TODO: Inline?
-void wrenPushRoot(WrenVM* vm, Obj* obj)
+void pigeonPushRoot(PigeonVM* vm, Obj* obj)
 {
   ASSERT(obj != NULL, "Can't root NULL.");
-  ASSERT(vm->numTempRoots < WREN_MAX_TEMP_ROOTS, "Too many temporary roots.");
+  ASSERT(vm->numTempRoots < PIGEON_MAX_TEMP_ROOTS, "Too many temporary roots.");
 
   vm->tempRoots[vm->numTempRoots++] = obj;
 }
 
-void wrenPopRoot(WrenVM* vm)
+void pigeonPopRoot(PigeonVM* vm)
 {
   ASSERT(vm->numTempRoots > 0, "No temporary roots to release.");
   vm->numTempRoots--;
 }
 
-int wrenGetSlotCount(WrenVM* vm)
+int pigeonGetSlotCount(PigeonVM* vm)
 {
   if (vm->apiStack == NULL) return 0;
   
   return (int)(vm->fiber->stackTop - vm->apiStack);
 }
 
-void wrenEnsureSlots(WrenVM* vm, int numSlots)
+void pigeonEnsureSlots(PigeonVM* vm, int numSlots)
 {
   // If we don't have a fiber accessible, create one for the API to use.
   if (vm->apiStack == NULL)
   {
-    vm->fiber = wrenNewFiber(vm, NULL);
+    vm->fiber = pigeonNewFiber(vm, NULL);
     vm->apiStack = vm->fiber->stack;
   }
   
@@ -1832,34 +1832,34 @@ void wrenEnsureSlots(WrenVM* vm, int numSlots)
   
   // Grow the stack if needed.
   int needed = (int)(vm->apiStack - vm->fiber->stack) + numSlots;
-  wrenEnsureStack(vm, vm->fiber, needed);
+  pigeonEnsureStack(vm, vm->fiber, needed);
   
   vm->fiber->stackTop = vm->apiStack + numSlots;
 }
 
 // Ensures that [slot] is a valid index into the API's stack of slots.
-static void validateApiSlot(WrenVM* WREN_MAYBE_UNUSED vm, int WREN_MAYBE_UNUSED slot)
+static void validateApiSlot(PigeonVM* PIGEON_MAYBE_UNUSED vm, int PIGEON_MAYBE_UNUSED slot)
 {
   ASSERT(slot >= 0, "Slot cannot be negative.");
-  ASSERT(slot < wrenGetSlotCount(vm), "Not that many slots.");
+  ASSERT(slot < pigeonGetSlotCount(vm), "Not that many slots.");
 }
 
 // Gets the type of the object in [slot].
-WrenType wrenGetSlotType(WrenVM* vm, int slot)
+PigeonType pigeonGetSlotType(PigeonVM* vm, int slot)
 {
   validateApiSlot(vm, slot);
-  if (IS_BOOL(vm->apiStack[slot])) return WREN_TYPE_BOOL;
-  if (IS_NUM(vm->apiStack[slot])) return WREN_TYPE_NUM;
-  if (IS_FOREIGN(vm->apiStack[slot])) return WREN_TYPE_FOREIGN;
-  if (IS_LIST(vm->apiStack[slot])) return WREN_TYPE_LIST;
-  if (IS_MAP(vm->apiStack[slot])) return WREN_TYPE_MAP;
-  if (IS_NULL(vm->apiStack[slot])) return WREN_TYPE_NULL;
-  if (IS_STRING(vm->apiStack[slot])) return WREN_TYPE_STRING;
+  if (IS_BOOL(vm->apiStack[slot])) return PIGEON_TYPE_BOOL;
+  if (IS_NUM(vm->apiStack[slot])) return PIGEON_TYPE_NUM;
+  if (IS_FOREIGN(vm->apiStack[slot])) return PIGEON_TYPE_FOREIGN;
+  if (IS_LIST(vm->apiStack[slot])) return PIGEON_TYPE_LIST;
+  if (IS_MAP(vm->apiStack[slot])) return PIGEON_TYPE_MAP;
+  if (IS_NULL(vm->apiStack[slot])) return PIGEON_TYPE_NULL;
+  if (IS_STRING(vm->apiStack[slot])) return PIGEON_TYPE_STRING;
   
-  return WREN_TYPE_UNKNOWN;
+  return PIGEON_TYPE_UNKNOWN;
 }
 
-bool wrenGetSlotBool(WrenVM* vm, int slot)
+bool pigeonGetSlotBool(PigeonVM* vm, int slot)
 {
   validateApiSlot(vm, slot);
   ASSERT(IS_BOOL(vm->apiStack[slot]), "Slot must hold a bool.");
@@ -1867,7 +1867,7 @@ bool wrenGetSlotBool(WrenVM* vm, int slot)
   return AS_BOOL(vm->apiStack[slot]);
 }
 
-const char* wrenGetSlotBytes(WrenVM* vm, int slot, int* length)
+const char* pigeonGetSlotBytes(PigeonVM* vm, int slot, int* length)
 {
   validateApiSlot(vm, slot);
   ASSERT(IS_STRING(vm->apiStack[slot]), "Slot must hold a string.");
@@ -1877,7 +1877,7 @@ const char* wrenGetSlotBytes(WrenVM* vm, int slot, int* length)
   return string->value;
 }
 
-double wrenGetSlotDouble(WrenVM* vm, int slot)
+double pigeonGetSlotDouble(PigeonVM* vm, int slot)
 {
   validateApiSlot(vm, slot);
   ASSERT(IS_NUM(vm->apiStack[slot]), "Slot must hold a number.");
@@ -1885,7 +1885,7 @@ double wrenGetSlotDouble(WrenVM* vm, int slot)
   return AS_NUM(vm->apiStack[slot]);
 }
 
-void* wrenGetSlotForeign(WrenVM* vm, int slot)
+void* pigeonGetSlotForeign(PigeonVM* vm, int slot)
 {
   validateApiSlot(vm, slot);
   ASSERT(IS_FOREIGN(vm->apiStack[slot]),
@@ -1894,7 +1894,7 @@ void* wrenGetSlotForeign(WrenVM* vm, int slot)
   return AS_FOREIGN(vm->apiStack[slot])->data;
 }
 
-const char* wrenGetSlotString(WrenVM* vm, int slot)
+const char* pigeonGetSlotString(PigeonVM* vm, int slot)
 {
   validateApiSlot(vm, slot);
   ASSERT(IS_STRING(vm->apiStack[slot]), "Slot must hold a string.");
@@ -1902,36 +1902,36 @@ const char* wrenGetSlotString(WrenVM* vm, int slot)
   return AS_CSTRING(vm->apiStack[slot]);
 }
 
-WrenHandle* wrenGetSlotHandle(WrenVM* vm, int slot)
+PigeonHandle* pigeonGetSlotHandle(PigeonVM* vm, int slot)
 {
   validateApiSlot(vm, slot);
-  return wrenMakeHandle(vm, vm->apiStack[slot]);
+  return pigeonMakeHandle(vm, vm->apiStack[slot]);
 }
 
 // Stores [value] in [slot] in the foreign call stack.
-static void setSlot(WrenVM* vm, int slot, Value value)
+static void setSlot(PigeonVM* vm, int slot, Value value)
 {
   validateApiSlot(vm, slot);
   vm->apiStack[slot] = value;
 }
 
-void wrenSetSlotBool(WrenVM* vm, int slot, bool value)
+void pigeonSetSlotBool(PigeonVM* vm, int slot, bool value)
 {
   setSlot(vm, slot, BOOL_VAL(value));
 }
 
-void wrenSetSlotBytes(WrenVM* vm, int slot, const char* bytes, size_t length)
+void pigeonSetSlotBytes(PigeonVM* vm, int slot, const char* bytes, size_t length)
 {
   ASSERT(bytes != NULL, "Byte array cannot be NULL.");
-  setSlot(vm, slot, wrenNewStringLength(vm, bytes, length));
+  setSlot(vm, slot, pigeonNewStringLength(vm, bytes, length));
 }
 
-void wrenSetSlotDouble(WrenVM* vm, int slot, double value)
+void pigeonSetSlotDouble(PigeonVM* vm, int slot, double value)
 {
   setSlot(vm, slot, NUM_VAL(value));
 }
 
-void* wrenSetSlotNewForeign(WrenVM* vm, int slot, int classSlot, size_t size)
+void* pigeonSetSlotNewForeign(PigeonVM* vm, int slot, int classSlot, size_t size)
 {
   validateApiSlot(vm, slot);
   validateApiSlot(vm, classSlot);
@@ -1940,42 +1940,42 @@ void* wrenSetSlotNewForeign(WrenVM* vm, int slot, int classSlot, size_t size)
   ObjClass* classObj = AS_CLASS(vm->apiStack[classSlot]);
   ASSERT(classObj->numFields == -1, "Class must be a foreign class.");
   
-  ObjForeign* foreign = wrenNewForeign(vm, classObj, size);
+  ObjForeign* foreign = pigeonNewForeign(vm, classObj, size);
   vm->apiStack[slot] = OBJ_VAL(foreign);
   
   return (void*)foreign->data;
 }
 
-void wrenSetSlotNewList(WrenVM* vm, int slot)
+void pigeonSetSlotNewList(PigeonVM* vm, int slot)
 {
-  setSlot(vm, slot, OBJ_VAL(wrenNewList(vm, 0)));
+  setSlot(vm, slot, OBJ_VAL(pigeonNewList(vm, 0)));
 }
 
-void wrenSetSlotNewMap(WrenVM* vm, int slot)
+void pigeonSetSlotNewMap(PigeonVM* vm, int slot)
 {
-  setSlot(vm, slot, OBJ_VAL(wrenNewMap(vm)));
+  setSlot(vm, slot, OBJ_VAL(pigeonNewMap(vm)));
 }
 
-void wrenSetSlotNull(WrenVM* vm, int slot)
+void pigeonSetSlotNull(PigeonVM* vm, int slot)
 {
   setSlot(vm, slot, NULL_VAL);
 }
 
-void wrenSetSlotString(WrenVM* vm, int slot, const char* text)
+void pigeonSetSlotString(PigeonVM* vm, int slot, const char* text)
 {
   ASSERT(text != NULL, "String cannot be NULL.");
   
-  setSlot(vm, slot, wrenNewString(vm, text));
+  setSlot(vm, slot, pigeonNewString(vm, text));
 }
 
-void wrenSetSlotHandle(WrenVM* vm, int slot, WrenHandle* handle)
+void pigeonSetSlotHandle(PigeonVM* vm, int slot, PigeonHandle* handle)
 {
   ASSERT(handle != NULL, "Handle cannot be NULL.");
 
   setSlot(vm, slot, handle->value);
 }
 
-int wrenGetListCount(WrenVM* vm, int slot)
+int pigeonGetListCount(PigeonVM* vm, int slot)
 {
   validateApiSlot(vm, slot);
   ASSERT(IS_LIST(vm->apiStack[slot]), "Slot must hold a list.");
@@ -1984,7 +1984,7 @@ int wrenGetListCount(WrenVM* vm, int slot)
   return elements.count;
 }
 
-void wrenGetListElement(WrenVM* vm, int listSlot, int index, int elementSlot)
+void pigeonGetListElement(PigeonVM* vm, int listSlot, int index, int elementSlot)
 {
   validateApiSlot(vm, listSlot);
   validateApiSlot(vm, elementSlot);
@@ -1992,13 +1992,13 @@ void wrenGetListElement(WrenVM* vm, int listSlot, int index, int elementSlot)
 
   ValueBuffer elements = AS_LIST(vm->apiStack[listSlot])->elements;
 
-  uint32_t usedIndex = wrenValidateIndex(elements.count, index);
+  uint32_t usedIndex = pigeonValidateIndex(elements.count, index);
   ASSERT(usedIndex != UINT32_MAX, "Index out of bounds.");
 
   vm->apiStack[elementSlot] = elements.data[usedIndex];
 }
 
-void wrenSetListElement(WrenVM* vm, int listSlot, int index, int elementSlot)
+void pigeonSetListElement(PigeonVM* vm, int listSlot, int index, int elementSlot)
 {
   validateApiSlot(vm, listSlot);
   validateApiSlot(vm, elementSlot);
@@ -2006,13 +2006,13 @@ void wrenSetListElement(WrenVM* vm, int listSlot, int index, int elementSlot)
 
   ObjList* list = AS_LIST(vm->apiStack[listSlot]);
 
-  uint32_t usedIndex = wrenValidateIndex(list->elements.count, index);
+  uint32_t usedIndex = pigeonValidateIndex(list->elements.count, index);
   ASSERT(usedIndex != UINT32_MAX, "Index out of bounds.");
   
   list->elements.data[usedIndex] = vm->apiStack[elementSlot];
 }
 
-void wrenInsertInList(WrenVM* vm, int listSlot, int index, int elementSlot)
+void pigeonInsertInList(PigeonVM* vm, int listSlot, int index, int elementSlot)
 {
   validateApiSlot(vm, listSlot);
   validateApiSlot(vm, elementSlot);
@@ -2021,15 +2021,15 @@ void wrenInsertInList(WrenVM* vm, int listSlot, int index, int elementSlot)
   ObjList* list = AS_LIST(vm->apiStack[listSlot]);
   
   // Negative indices count from the end. 
-  // We don't use wrenValidateIndex here because insert allows 1 past the end.
+  // We don't use pigeonValidateIndex here because insert allows 1 past the end.
   if (index < 0) index = list->elements.count + 1 + index;
   
   ASSERT(index <= list->elements.count, "Index out of bounds.");
   
-  wrenListInsert(vm, list, vm->apiStack[elementSlot], index);
+  pigeonListInsert(vm, list, vm->apiStack[elementSlot], index);
 }
 
-int wrenGetMapCount(WrenVM* vm, int slot)
+int pigeonGetMapCount(PigeonVM* vm, int slot)
 {
   validateApiSlot(vm, slot);
   ASSERT(IS_MAP(vm->apiStack[slot]), "Slot must hold a map.");
@@ -2038,23 +2038,23 @@ int wrenGetMapCount(WrenVM* vm, int slot)
   return map->count;
 }
 
-bool wrenGetMapContainsKey(WrenVM* vm, int mapSlot, int keySlot)
+bool pigeonGetMapContainsKey(PigeonVM* vm, int mapSlot, int keySlot)
 {
   validateApiSlot(vm, mapSlot);
   validateApiSlot(vm, keySlot);
   ASSERT(IS_MAP(vm->apiStack[mapSlot]), "Slot must hold a map.");
 
   Value key = vm->apiStack[keySlot];
-  ASSERT(wrenMapIsValidKey(key), "Key must be a value type");
+  ASSERT(pigeonMapIsValidKey(key), "Key must be a value type");
   if (!validateKey(vm, key)) return false;
 
   ObjMap* map = AS_MAP(vm->apiStack[mapSlot]);
-  Value value = wrenMapGet(vm, map, key);
+  Value value = pigeonMapGet(vm, map, key);
 
   return !IS_UNDEFINED(value);
 }
 
-void wrenGetMapValue(WrenVM* vm, int mapSlot, int keySlot, int valueSlot)
+void pigeonGetMapValue(PigeonVM* vm, int mapSlot, int keySlot, int valueSlot)
 {
   validateApiSlot(vm, mapSlot);
   validateApiSlot(vm, keySlot);
@@ -2062,7 +2062,7 @@ void wrenGetMapValue(WrenVM* vm, int mapSlot, int keySlot, int valueSlot)
   ASSERT(IS_MAP(vm->apiStack[mapSlot]), "Slot must hold a map.");
 
   ObjMap* map = AS_MAP(vm->apiStack[mapSlot]);
-  Value value = wrenMapGet(vm, map, vm->apiStack[keySlot]);
+  Value value = pigeonMapGet(vm, map, vm->apiStack[keySlot]);
   if (IS_UNDEFINED(value)) {
     value = NULL_VAL;
   }
@@ -2070,7 +2070,7 @@ void wrenGetMapValue(WrenVM* vm, int mapSlot, int keySlot, int valueSlot)
   vm->apiStack[valueSlot] = value;
 }
 
-void wrenSetMapValue(WrenVM* vm, int mapSlot, int keySlot, int valueSlot)
+void pigeonSetMapValue(PigeonVM* vm, int mapSlot, int keySlot, int valueSlot)
 {
   validateApiSlot(vm, mapSlot);
   validateApiSlot(vm, keySlot);
@@ -2078,7 +2078,7 @@ void wrenSetMapValue(WrenVM* vm, int mapSlot, int keySlot, int valueSlot)
   ASSERT(IS_MAP(vm->apiStack[mapSlot]), "Must insert into a map.");
   
   Value key = vm->apiStack[keySlot];
-  ASSERT(wrenMapIsValidKey(key), "Key must be a value type");
+  ASSERT(pigeonMapIsValidKey(key), "Key must be a value type");
 
   if (!validateKey(vm, key)) {
     return;
@@ -2087,10 +2087,10 @@ void wrenSetMapValue(WrenVM* vm, int mapSlot, int keySlot, int valueSlot)
   Value value = vm->apiStack[valueSlot];
   ObjMap* map = AS_MAP(vm->apiStack[mapSlot]);
   
-  wrenMapSet(vm, map, key, value);
+  pigeonMapSet(vm, map, key, value);
 }
 
-void wrenRemoveMapValue(WrenVM* vm, int mapSlot, int keySlot, 
+void pigeonRemoveMapValue(PigeonVM* vm, int mapSlot, int keySlot, 
                         int removedValueSlot)
 {
   validateApiSlot(vm, mapSlot);
@@ -2103,77 +2103,77 @@ void wrenRemoveMapValue(WrenVM* vm, int mapSlot, int keySlot,
   }
 
   ObjMap* map = AS_MAP(vm->apiStack[mapSlot]);
-  Value removed = wrenMapRemoveKey(vm, map, key);
+  Value removed = pigeonMapRemoveKey(vm, map, key);
   setSlot(vm, removedValueSlot, removed);
 }
 
-void wrenGetVariable(WrenVM* vm, const char* module, const char* name,
+void pigeonGetVariable(PigeonVM* vm, const char* module, const char* name,
                      int slot)
 {
   ASSERT(module != NULL, "Module cannot be NULL.");
   ASSERT(name != NULL, "Variable name cannot be NULL.");  
 
-  Value moduleName = wrenStringFormat(vm, "$", module);
-  wrenPushRoot(vm, AS_OBJ(moduleName));
+  Value moduleName = pigeonStringFormat(vm, "$", module);
+  pigeonPushRoot(vm, AS_OBJ(moduleName));
   
   ObjModule* moduleObj = getModule(vm, moduleName);
   ASSERT(moduleObj != NULL, "Could not find module.");
   
-  wrenPopRoot(vm); // moduleName.
+  pigeonPopRoot(vm); // moduleName.
 
-  int variableSlot = wrenSymbolTableFind(&moduleObj->variableNames,
+  int variableSlot = pigeonSymbolTableFind(&moduleObj->variableNames,
                                          name, strlen(name));
   ASSERT(variableSlot != -1, "Could not find variable.");
   
   setSlot(vm, slot, moduleObj->variables.data[variableSlot]);
 }
 
-bool wrenHasVariable(WrenVM* vm, const char* module, const char* name)
+bool pigeonHasVariable(PigeonVM* vm, const char* module, const char* name)
 {
   ASSERT(module != NULL, "Module cannot be NULL.");
   ASSERT(name != NULL, "Variable name cannot be NULL.");
 
-  Value moduleName = wrenStringFormat(vm, "$", module);
-  wrenPushRoot(vm, AS_OBJ(moduleName));
+  Value moduleName = pigeonStringFormat(vm, "$", module);
+  pigeonPushRoot(vm, AS_OBJ(moduleName));
 
-  //We don't use wrenHasModule since we want to use the module object.
+  //We don't use pigeonHasModule since we want to use the module object.
   ObjModule* moduleObj = getModule(vm, moduleName);
   ASSERT(moduleObj != NULL, "Could not find module.");
 
-  wrenPopRoot(vm); // moduleName.
+  pigeonPopRoot(vm); // moduleName.
 
-  int variableSlot = wrenSymbolTableFind(&moduleObj->variableNames,
+  int variableSlot = pigeonSymbolTableFind(&moduleObj->variableNames,
     name, strlen(name));
 
   return variableSlot != -1;
 }
 
-bool wrenHasModule(WrenVM* vm, const char* module)
+bool pigeonHasModule(PigeonVM* vm, const char* module)
 {
   ASSERT(module != NULL, "Module cannot be NULL.");
   
-  Value moduleName = wrenStringFormat(vm, "$", module);
-  wrenPushRoot(vm, AS_OBJ(moduleName));
+  Value moduleName = pigeonStringFormat(vm, "$", module);
+  pigeonPushRoot(vm, AS_OBJ(moduleName));
 
   ObjModule* moduleObj = getModule(vm, moduleName);
   
-  wrenPopRoot(vm); // moduleName.
+  pigeonPopRoot(vm); // moduleName.
 
   return moduleObj != NULL;
 }
 
-void wrenAbortFiber(WrenVM* vm, int slot)
+void pigeonAbortFiber(PigeonVM* vm, int slot)
 {
   validateApiSlot(vm, slot);
   vm->fiber->error = vm->apiStack[slot];
 }
 
-void* wrenGetUserData(WrenVM* vm)
+void* pigeonGetUserData(PigeonVM* vm)
 {
 	return vm->config.userData;
 }
 
-void wrenSetUserData(WrenVM* vm, void* userData)
+void pigeonSetUserData(PigeonVM* vm, void* userData)
 {
 	vm->config.userData = userData;
 }

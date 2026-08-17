@@ -6,29 +6,29 @@
 #include <stdio.h>
 #include <string.h>
 
-static WrenVM* vm = NULL;
+static PigeonVM* vm = NULL;
 
 // Test runner for the Pigeon language suite and C API tests.
 // Not a general-purpose VM. Use the `pigeon` CLI for that.
 
 // Callback for default imports (e.g., `import "math"`)
-static const char* resolveDefaultExport(WrenVM* vm, const char* name)
+static const char* resolveDefaultExport(PigeonVM* vm, const char* name)
 {
   (void)vm;
-  return wrenStdlibGetDefaultExport(name);
+  return pigeonStdlibGetDefaultExport(name);
 }
 
 // Callback for wildcard imports (e.g., `import "math" for *`)
-static const char** resolveExports(WrenVM* vm, const char* name)
+static const char** resolveExports(PigeonVM* vm, const char* name)
 {
   (void)vm;
-  return wrenStdlibGetExports(name);
+  return pigeonStdlibGetExports(name);
 }
 
-static WrenVM* initVM(bool isAPITest)
+static PigeonVM* initVM(bool isAPITest)
 {
-  WrenConfiguration config;
-  wrenInitConfiguration(&config);
+  PigeonConfiguration config;
+  pigeonInitConfiguration(&config);
 
   config.resolveModuleFn = resolveModule;
   config.loadModuleFn = readModule;
@@ -45,7 +45,7 @@ static WrenVM* initVM(bool isAPITest)
 
   // Since we're running in a standalone process, be generous with memory.
   config.initialHeapSize = 1024 * 1024 * 100;
-  return wrenNewVM(&config);
+  return pigeonNewVM(&config);
 }
 
 int main(int argc, const char* argv[]) {
@@ -58,16 +58,16 @@ int main(int argc, const char* argv[]) {
   bool isAPITest = isModuleAnAPITest(testName);
 
   vm = initVM(isAPITest);
-  WrenInterpretResult result = runFile(vm, testName);
+  PigeonInterpretResult result = runFile(vm, testName);
 
   if(isAPITest) {
     exitCode = APITest_Run(vm, testName);
   }
 
-  if (result == WREN_RESULT_COMPILE_ERROR) return WREN_EX_DATAERR;
-  if (result == WREN_RESULT_RUNTIME_ERROR) return WREN_EX_SOFTWARE;
+  if (result == PIGEON_RESULT_COMPILE_ERROR) return PIGEON_EX_DATAERR;
+  if (result == PIGEON_RESULT_RUNTIME_ERROR) return PIGEON_EX_SOFTWARE;
 
-  wrenFreeVM(vm);
+  pigeonFreeVM(vm);
 
   return exitCode;
 

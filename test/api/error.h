@@ -1,3 +1,3 @@
-#include "wren.h"
+#include "pigeon.h"
 
-WrenForeignMethodFn errorBindMethod(const char* signature);
+PigeonForeignMethodFn errorBindMethod(const char* signature);

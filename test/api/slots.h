@@ -1,4 +1,4 @@
-#include "wren.h"
+#include "pigeon.h"
 
-WrenForeignMethodFn slotsBindMethod(const char* signature);
-void slotsBindClass(const char* className, WrenForeignClassMethods* methods);
+PigeonForeignMethodFn slotsBindMethod(const char* signature);
+void slotsBindClass(const char* className, PigeonForeignClassMethods* methods);

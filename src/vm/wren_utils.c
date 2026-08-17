@@ -7,26 +7,26 @@ DEFINE_BUFFER(Byte, uint8_t);
 DEFINE_BUFFER(Int, int);
 DEFINE_BUFFER(String, ObjString*);
 
-void wrenSymbolTableInit(SymbolTable* symbols)
+void pigeonSymbolTableInit(SymbolTable* symbols)
 {
-  wrenStringBufferInit(&symbols->data);
+  pigeonStringBufferInit(&symbols->data);
   sym_init(&symbols->index);
 }
 
-void wrenSymbolTableClear(WrenVM* vm, SymbolTable* symbols)
+void pigeonSymbolTableClear(PigeonVM* vm, SymbolTable* symbols)
 {
-  wrenStringBufferClear(vm, &symbols->data);
+  pigeonStringBufferClear(vm, &symbols->data);
   sym_free(&symbols->index);
 }
 
-int wrenSymbolTableAdd(WrenVM* vm, SymbolTable* symbols,
+int pigeonSymbolTableAdd(PigeonVM* vm, SymbolTable* symbols,
                        const char* name, size_t length)
 {
-  ObjString* symbol = AS_STRING(wrenNewStringLength(vm, name, length));
+  ObjString* symbol = AS_STRING(pigeonNewStringLength(vm, name, length));
 
-  wrenPushRoot(vm, &symbol->obj);
-  wrenStringBufferWrite(vm, &symbols->data, symbol);
-  wrenPopRoot(vm);
+  pigeonPushRoot(vm, &symbol->obj);
+  pigeonStringBufferWrite(vm, &symbols->data, symbol);
+  pigeonPopRoot(vm);
 
   int idx = symbols->data.count - 1;
 
@@ -36,18 +36,18 @@ int wrenSymbolTableAdd(WrenVM* vm, SymbolTable* symbols,
   return idx;
 }
 
-int wrenSymbolTableEnsure(WrenVM* vm, SymbolTable* symbols,
+int pigeonSymbolTableEnsure(PigeonVM* vm, SymbolTable* symbols,
                           const char* name, size_t length)
 {
   // See if the symbol is already defined.
-  int existing = wrenSymbolTableFind(symbols, name, length);
+  int existing = pigeonSymbolTableFind(symbols, name, length);
   if (existing != -1) return existing;
 
   // New symbol, so add it.
-  return wrenSymbolTableAdd(vm, symbols, name, length);
+  return pigeonSymbolTableAdd(vm, symbols, name, length);
 }
 
-int wrenSymbolTableFind(const SymbolTable* symbols,
+int pigeonSymbolTableFind(const SymbolTable* symbols,
                         const char* name, size_t length)
 {
   // The swizz hash map needs a null-terminated key. If the name is already
@@ -72,11 +72,11 @@ int wrenSymbolTableFind(const SymbolTable* symbols,
   return entry ? entry->value : -1;
 }
 
-void wrenBlackenSymbolTable(WrenVM* vm, SymbolTable* symbolTable)
+void pigeonBlackenSymbolTable(PigeonVM* vm, SymbolTable* symbolTable)
 {
   for (int i = 0; i < symbolTable->data.count; i++)
   {
-    wrenGrayObj(vm, &symbolTable->data.data[i]->obj);
+    pigeonGrayObj(vm, &symbolTable->data.data[i]->obj);
   }
 
   // Keep track of how much memory is still in use.
@@ -84,7 +84,7 @@ void wrenBlackenSymbolTable(WrenVM* vm, SymbolTable* symbolTable)
                         sizeof(*symbolTable->data.data);
 }
 
-int wrenUtf8EncodeNumBytes(int value)
+int pigeonUtf8EncodeNumBytes(int value)
 {
   ASSERT(value >= 0, "Cannot encode a negative value.");
   
@@ -95,7 +95,7 @@ int wrenUtf8EncodeNumBytes(int value)
   return 0;
 }
 
-int wrenUtf8Encode(int value, uint8_t* bytes)
+int pigeonUtf8Encode(int value, uint8_t* bytes)
 {
   if (value <= 0x7f)
   {
@@ -139,7 +139,7 @@ int wrenUtf8Encode(int value, uint8_t* bytes)
   return 0;
 }
 
-int wrenUtf8Decode(const uint8_t* bytes, uint32_t length)
+int pigeonUtf8Decode(const uint8_t* bytes, uint32_t length)
 {
   // Single byte (i.e. fits in ASCII).
   if (*bytes <= 0x7f) return *bytes;
@@ -187,7 +187,7 @@ int wrenUtf8Decode(const uint8_t* bytes, uint32_t length)
   return value;
 }
 
-int wrenUtf8DecodeNumBytes(uint8_t byte)
+int pigeonUtf8DecodeNumBytes(uint8_t byte)
 {
   // If the byte starts with 10xxxxx, it's the middle of a UTF-8 sequence, so
   // don't count it at all.
@@ -202,7 +202,7 @@ int wrenUtf8DecodeNumBytes(uint8_t byte)
 }
 
 // From: http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2Float
-int wrenPowerOf2Ceil(int n)
+int pigeonPowerOf2Ceil(int n)
 {
   n--;
   n |= n >> 1;
@@ -215,7 +215,7 @@ int wrenPowerOf2Ceil(int n)
   return n;
 }
 
-uint32_t wrenValidateIndex(uint32_t count, int64_t value)
+uint32_t pigeonValidateIndex(uint32_t count, int64_t value)
 {
   // Negative indices count from the end.
   if (value < 0) value = count + value;

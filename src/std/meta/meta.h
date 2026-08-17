@@ -3,10 +3,10 @@
 
 // Meta module - compile-time evaluation and module introspection
 
-#include "wren.h"
+#include "pigeon.h"
 
-const char* wrenMetaSource();
-WrenForeignMethodFn wrenMetaBindForeignMethod(WrenVM* vm,
+const char* pigeonMetaSource();
+PigeonForeignMethodFn pigeonMetaBindForeignMethod(PigeonVM* vm,
                                               const char* className,
                                               bool isStatic,
                                               const char* signature);

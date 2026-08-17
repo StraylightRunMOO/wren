@@ -1,5 +1,5 @@
-#ifndef wren_common_h
-#define wren_common_h
+#ifndef pigeon_common_h
+#define pigeon_common_h
 
 // This header contains macros and defines used across the entire Wren
 // implementation. In particular, it contains "configuration" defines that
@@ -25,8 +25,8 @@
 // debugging and may be more portable.
 //
 // Defaults to on.
-#ifndef WREN_NAN_TAGGING
-  #define WREN_NAN_TAGGING 1
+#ifndef PIGEON_NAN_TAGGING
+  #define PIGEON_NAN_TAGGING 1
 #endif
 
 // If true, the VM's interpreter loop uses computed gotos. See this for more:
@@ -35,28 +35,28 @@
 // support.
 // see https://bullno1.com/blog/switched-goto for alternative
 // Defaults to true on supported compilers.
-#ifndef WREN_COMPUTED_GOTO
+#ifndef PIGEON_COMPUTED_GOTO
   #if defined(_MSC_VER) && !defined(__clang__)
     // No computed gotos in Visual Studio.
-    #define WREN_COMPUTED_GOTO 0
+    #define PIGEON_COMPUTED_GOTO 0
   #else
-    #define WREN_COMPUTED_GOTO 1
+    #define PIGEON_COMPUTED_GOTO 1
   #endif
 #endif
 
 // The VM includes a number of optional modules. You can choose to include
 // these or not. By default, they are all available. To disable one, set the
 // corresponding `WREN_OPT_<name>` define to `0`.
-#ifndef WREN_OPT_META
-  #define WREN_OPT_META 1
+#ifndef PIGEON_OPT_META
+  #define PIGEON_OPT_META 1
 #endif
 
-#ifndef WREN_OPT_RANDOM
-  #define WREN_OPT_RANDOM 1
+#ifndef PIGEON_OPT_RANDOM
+  #define PIGEON_OPT_RANDOM 1
 #endif
 
-#ifndef WREN_OPT_STDLIB
-  #define WREN_OPT_STDLIB 1
+#ifndef PIGEON_OPT_STDLIB
+  #define PIGEON_OPT_STDLIB 1
 #endif
 
 // These flags are useful for debugging and hacking on Wren itself. They are not
@@ -65,19 +65,19 @@
 // Set this to true to stress test the GC. It will perform a collection before
 // every allocation. This is useful to ensure that memory is always correctly
 // reachable.
-#define WREN_DEBUG_GC_STRESS 0
+#define PIGEON_DEBUG_GC_STRESS 0
 
 // Set this to true to log memory operations as they occur.
-#define WREN_DEBUG_TRACE_MEMORY 0
+#define PIGEON_DEBUG_TRACE_MEMORY 0
 
 // Set this to true to log garbage collections as they occur.
-#define WREN_DEBUG_TRACE_GC 0
+#define PIGEON_DEBUG_TRACE_GC 0
 
 // Set this to true to print out the compiled bytecode of each function.
-#define WREN_DEBUG_DUMP_COMPILED_CODE 0
+#define PIGEON_DEBUG_DUMP_COMPILED_CODE 0
 
 // Set this to trace each instruction as it's executed.
-#define WREN_DEBUG_TRACE_INSTRUCTIONS 0
+#define PIGEON_DEBUG_TRACE_INSTRUCTIONS 0
 
 // The maximum number of module-level variables that may be defined at one time.
 // This limitation comes from the 16 bits used for the arguments to
@@ -122,20 +122,20 @@
 
 // Use the VM's allocator to allocate an object of [type].
 #define ALLOCATE(vm, type)                                                     \
-    ((type*)wrenReallocate(vm, NULL, 0, sizeof(type)))
+    ((type*)pigeonReallocate(vm, NULL, 0, sizeof(type)))
 
 // Use the VM's allocator to allocate an object of [mainType] containing a
 // flexible array of [count] objects of [arrayType].
 #define ALLOCATE_FLEX(vm, mainType, arrayType, count)                          \
-    ((mainType*)wrenReallocate(vm, NULL, 0,                                    \
+    ((mainType*)pigeonReallocate(vm, NULL, 0,                                    \
         sizeof(mainType) + sizeof(arrayType) * (count)))
 
 // Use the VM's allocator to allocate an array of [count] elements of [type].
 #define ALLOCATE_ARRAY(vm, type, count)                                        \
-    ((type*)wrenReallocate(vm, NULL, 0, sizeof(type) * (count)))
+    ((type*)pigeonReallocate(vm, NULL, 0, sizeof(type) * (count)))
 
 // Use the VM's allocator to free the previously allocated memory at [pointer].
-#define DEALLOCATE(vm, pointer) wrenReallocate(vm, pointer, 0, 0)
+#define DEALLOCATE(vm, pointer) pigeonReallocate(vm, pointer, 0, 0)
 
 // The Microsoft compiler does not support the "inline" modifier when compiling
 // as plain C.
@@ -147,9 +147,9 @@
 // This silences "unused parameter" warnings when a function argument is required
 // by the API but not used in a particular implementation.
 #if defined(__GNUC__) || defined(__clang__)
-  #define WREN_MAYBE_UNUSED __attribute__((unused))
+  #define PIGEON_MAYBE_UNUSED __attribute__((unused))
 #else
-  #define WREN_MAYBE_UNUSED
+  #define PIGEON_MAYBE_UNUSED
 #endif
 
 // This is used to clearly mark flexible-sized arrays that appear at the end of

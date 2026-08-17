@@ -6,31 +6,31 @@
 #include <sys/time.h>
 
 #include "math.h"
-#include "wren.h"
+#include "pigeon.h"
 #include "wren_common.h"
 
 // Gamma function
-static void mathGamma(WrenVM* vm) {
-  double x = wrenGetSlotDouble(vm, 1);
+static void mathGamma(PigeonVM* vm) {
+  double x = pigeonGetSlotDouble(vm, 1);
   #if defined(__GLIBC__) || defined(__APPLE__) || defined(__FreeBSD__)
-    wrenSetSlotDouble(vm, 0, tgamma(x));
+    pigeonSetSlotDouble(vm, 0, tgamma(x));
   #else
     // Fallback to lgamma
-    wrenSetSlotDouble(vm, 0, exp(lgamma(x)));
+    pigeonSetSlotDouble(vm, 0, exp(lgamma(x)));
   #endif
 }
 
 // Log gamma function
-static void mathLgamma(WrenVM* vm) {
-  double x = wrenGetSlotDouble(vm, 1);
-  wrenSetSlotDouble(vm, 0, lgamma(x));
+static void mathLgamma(PigeonVM* vm) {
+  double x = pigeonGetSlotDouble(vm, 1);
+  pigeonSetSlotDouble(vm, 0, lgamma(x));
 }
 
 // Error function
-static void mathErf(WrenVM* vm) {
-  double x = wrenGetSlotDouble(vm, 1);
+static void mathErf(PigeonVM* vm) {
+  double x = pigeonGetSlotDouble(vm, 1);
   #if defined(__GLIBC__) || defined(__APPLE__) || defined(__FreeBSD__)
-    wrenSetSlotDouble(vm, 0, erf(x));
+    pigeonSetSlotDouble(vm, 0, erf(x));
   #else
     // Abramowitz and Stegun approximation
     double a1 =  0.254829592;
@@ -46,25 +46,25 @@ static void mathErf(WrenVM* vm) {
     double t = 1.0 / (1.0 + p * x);
     double y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-x * x);
     
-    wrenSetSlotDouble(vm, 0, sign * y);
+    pigeonSetSlotDouble(vm, 0, sign * y);
   #endif
 }
 
 // System time for seeding
-static void mathSystemTime(WrenVM* vm) {
+static void mathSystemTime(PigeonVM* vm) {
   struct timeval tv;
   gettimeofday(&tv, NULL);
   uint64_t seed = (uint64_t)tv.tv_sec ^ (uint64_t)tv.tv_usec;
-  wrenSetSlotDouble(vm, 0, (double)seed);
+  pigeonSetSlotDouble(vm, 0, (double)seed);
 }
 
 #include "math.wren.inc"
 
-const char* wrenMathModuleSource() {
+const char* pigeonMathModuleSource() {
   return mathModuleSource;
 }
 
-WrenForeignMethodFn wrenMathModuleBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
+PigeonForeignMethodFn pigeonMathModuleBindForeignMethod(PigeonVM* PIGEON_MAYBE_UNUSED vm,
                                                     const char* className,
                                                     bool isStatic,
                                                     const char* signature)

@@ -4,14 +4,14 @@
 
 #include "strings.wren.inc"
 
-const char* wrenStringsSource() {
+const char* pigeonStringsSource() {
   return stringsModuleSource;
 }
 
-WrenForeignMethodFn wrenStringsBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
-                                                 const char* WREN_MAYBE_UNUSED className,
-                                                 bool WREN_MAYBE_UNUSED isStatic,
-                                                 const char* WREN_MAYBE_UNUSED signature)
+PigeonForeignMethodFn pigeonStringsBindForeignMethod(PigeonVM* PIGEON_MAYBE_UNUSED vm,
+                                                 const char* PIGEON_MAYBE_UNUSED className,
+                                                 bool PIGEON_MAYBE_UNUSED isStatic,
+                                                 const char* PIGEON_MAYBE_UNUSED signature)
 {
   // Pure Wren module - no foreign methods
   return NULL;

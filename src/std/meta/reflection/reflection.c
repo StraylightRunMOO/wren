@@ -51,7 +51,7 @@ static const char* methodTypeString(MethodType t) {
 }
 
 // Populate a methods ObjMap with entries from `cls`, marking each as isStatic.
-static void populateMethods(WrenVM* vm, ObjMap* methods, ObjClass* cls, bool isStatic) {
+static void populateMethods(PigeonVM* vm, ObjMap* methods, ObjClass* cls, bool isStatic) {
     SymbolTable* symbols = &vm->methodNames;
     for (int i = 0; i < cls->methods.count && i < symbols->data.count; i++) {
         Method* method = &cls->methods.data[i];
@@ -62,29 +62,29 @@ static void populateMethods(WrenVM* vm, ObjMap* methods, ObjClass* cls, bool isS
         parseMethodSignature(methodName->value, methodName->length,
                              &arity, &isGetter, &isSetter);
 
-        ObjMap* methodInfo = wrenNewMap(vm);
-        wrenPushRoot(vm, (Obj*)methodInfo);
+        ObjMap* methodInfo = pigeonNewMap(vm);
+        pigeonPushRoot(vm, (Obj*)methodInfo);
 
         Value vArity    = NUM_VAL(arity);
         Value vGetter   = BOOL_VAL(isGetter);
         Value vSetter   = BOOL_VAL(isSetter);
         Value vStatic   = BOOL_VAL(isStatic);
-        Value vType     = OBJ_VAL(wrenNewString(vm, methodTypeString(method->type)));
+        Value vType     = OBJ_VAL(pigeonNewString(vm, methodTypeString(method->type)));
 
-        wrenMapSet(vm, methodInfo, OBJ_VAL(wrenNewString(vm, "arity")),    vArity);
-        wrenMapSet(vm, methodInfo, OBJ_VAL(wrenNewString(vm, "isGetter")), vGetter);
-        wrenMapSet(vm, methodInfo, OBJ_VAL(wrenNewString(vm, "isSetter")), vSetter);
-        wrenMapSet(vm, methodInfo, OBJ_VAL(wrenNewString(vm, "isStatic")), vStatic);
-        wrenMapSet(vm, methodInfo, OBJ_VAL(wrenNewString(vm, "type")),     vType);
+        pigeonMapSet(vm, methodInfo, OBJ_VAL(pigeonNewString(vm, "arity")),    vArity);
+        pigeonMapSet(vm, methodInfo, OBJ_VAL(pigeonNewString(vm, "isGetter")), vGetter);
+        pigeonMapSet(vm, methodInfo, OBJ_VAL(pigeonNewString(vm, "isSetter")), vSetter);
+        pigeonMapSet(vm, methodInfo, OBJ_VAL(pigeonNewString(vm, "isStatic")), vStatic);
+        pigeonMapSet(vm, methodInfo, OBJ_VAL(pigeonNewString(vm, "type")),     vType);
 
-        wrenMapSet(vm, methods, OBJ_VAL(methodName), OBJ_VAL(methodInfo));
-        wrenPopRoot(vm);
+        pigeonMapSet(vm, methods, OBJ_VAL(methodName), OBJ_VAL(methodInfo));
+        pigeonPopRoot(vm);
     }
 }
 
 // Reflection_.getClass(name) — returns Map{"name":..., "methods":{...}}
-static void reflectionGetClass(WrenVM* vm) {
-    const char* name = wrenGetSlotString(vm, 1);
+static void reflectionGetClass(PigeonVM* vm) {
+    const char* name = pigeonGetSlotString(vm, 1);
 
     ObjClass* foundClass = NULL;
 
@@ -92,7 +92,7 @@ static void reflectionGetClass(WrenVM* vm) {
     if (vm->modules && vm->modules->entries) {
         for (uint32_t i = 0; i < vm->modules->capacity; i++) {
             Value moduleVal = vm->modules->entries[i].value;
-            if (IS_UNDEFINED(moduleVal) || !wrenIsObjType(moduleVal, OBJ_MODULE)) continue;
+            if (IS_UNDEFINED(moduleVal) || !pigeonIsObjType(moduleVal, OBJ_MODULE)) continue;
             ObjModule* module = AS_MODULE(moduleVal);
             for (int j = 0; j < module->variableNames.data.count; j++) {
                 if (strcmp(module->variableNames.data.data[j]->value, name) == 0) {
@@ -119,43 +119,43 @@ static void reflectionGetClass(WrenVM* vm) {
         else if (strcmp(name, "String") == 0) foundClass = vm->stringClass;
     }
 
-    if (!foundClass) { wrenSetSlotNull(vm, 0); return; }
+    if (!foundClass) { pigeonSetSlotNull(vm, 0); return; }
 
-    ObjMap* result = wrenNewMap(vm);
-    wrenPushRoot(vm, (Obj*)result);
+    ObjMap* result = pigeonNewMap(vm);
+    pigeonPushRoot(vm, (Obj*)result);
 
-    wrenMapSet(vm, result,
-               OBJ_VAL(wrenNewString(vm, "name")),
+    pigeonMapSet(vm, result,
+               OBJ_VAL(pigeonNewString(vm, "name")),
                OBJ_VAL(foundClass->name));
 
-    ObjMap* methods = wrenNewMap(vm);
-    wrenPushRoot(vm, (Obj*)methods);
-    wrenMapSet(vm, result, OBJ_VAL(wrenNewString(vm, "methods")), OBJ_VAL(methods));
+    ObjMap* methods = pigeonNewMap(vm);
+    pigeonPushRoot(vm, (Obj*)methods);
+    pigeonMapSet(vm, result, OBJ_VAL(pigeonNewString(vm, "methods")), OBJ_VAL(methods));
 
     // Instance methods
     populateMethods(vm, methods, foundClass, false);
     // Static methods (live on the metaclass)
     populateMethods(vm, methods, foundClass->obj.classObj, true);
 
-    wrenPopRoot(vm); // methods
-    wrenPopRoot(vm); // result
+    pigeonPopRoot(vm); // methods
+    pigeonPopRoot(vm); // result
 
     vm->apiStack[0] = OBJ_VAL(result);
 }
 
 // Reflection_.fieldsOf(instance) — returns empty list (field names not stored at runtime)
-static void reflectionFieldsOf(WrenVM* vm) {
-    ObjList* fields = wrenNewList(vm, 0);
+static void reflectionFieldsOf(PigeonVM* vm) {
+    ObjList* fields = pigeonNewList(vm, 0);
     vm->apiStack[0] = OBJ_VAL(fields);
 }
 
-const char* wrenReflectionSource() {
+const char* pigeonReflectionSource() {
     return reflectionModuleSource;
 }
 
-WrenForeignMethodFn wrenReflectionBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
-                                                     const char* WREN_MAYBE_UNUSED className,
-                                                     bool WREN_MAYBE_UNUSED isStatic,
+PigeonForeignMethodFn pigeonReflectionBindForeignMethod(PigeonVM* PIGEON_MAYBE_UNUSED vm,
+                                                     const char* PIGEON_MAYBE_UNUSED className,
+                                                     bool PIGEON_MAYBE_UNUSED isStatic,
                                                      const char* signature) {
     if (strcmp(className, "Reflection_") != 0) return NULL;
     if (!isStatic) return NULL;
@@ -164,9 +164,9 @@ WrenForeignMethodFn wrenReflectionBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm
     return NULL;
 }
 
-void wrenBindForeignClassWithMeta(WrenVM* vm,
+void pigeonBindForeignClassWithMeta(PigeonVM* vm,
                                   const char* className,
-                                  WrenForeignClassMethods* methods,
-                                  const WrenMethodMeta* methodMeta) {
+                                  PigeonForeignClassMethods* methods,
+                                  const PigeonMethodMeta* methodMeta) {
     (void)vm; (void)className; (void)methods; (void)methodMeta;
 }

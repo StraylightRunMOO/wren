@@ -1,5 +1,5 @@
-#ifndef wren_primitive_h
-#define wren_primitive_h
+#ifndef pigeon_primitive_h
+#define pigeon_primitive_h
 
 #include "wren_vm.h"
 
@@ -8,12 +8,12 @@
 #define PRIMITIVE(cls, name, function)                                         \
     do                                                                         \
     {                                                                          \
-      int symbol = wrenSymbolTableEnsure(vm,                                   \
+      int symbol = pigeonSymbolTableEnsure(vm,                                   \
           &vm->methodNames, name, strlen(name));                               \
       Method method;                                                           \
       method.type = METHOD_PRIMITIVE;                                          \
       method.as.primitive = prim_##function;                                   \
-      wrenBindMethod(vm, cls, symbol, method);                                 \
+      pigeonBindMethod(vm, cls, symbol, method);                                 \
     } while (false)
 
 // Binds a primitive method named [name] (in Wren) implemented using C function
@@ -21,19 +21,19 @@
 #define FUNCTION_CALL(cls, name, function)                                     \
     do                                                                         \
     {                                                                          \
-      int symbol = wrenSymbolTableEnsure(vm,                                   \
+      int symbol = pigeonSymbolTableEnsure(vm,                                   \
           &vm->methodNames, name, strlen(name));                               \
       Method method;                                                           \
       method.type = METHOD_FUNCTION_CALL;                                      \
       method.as.primitive = prim_##function;                                   \
-      wrenBindMethod(vm, cls, symbol, method);                                 \
+      pigeonBindMethod(vm, cls, symbol, method);                                 \
     } while (false)
 
 // Defines a primitive method whose C function name is [name]. This abstracts
 // the actual type signature of a primitive function and makes it clear which C
 // functions are invoked as primitives.
 #define DEF_PRIMITIVE(name)                                                    \
-    static bool prim_##name(WrenVM* WREN_MAYBE_UNUSED vm, Value* WREN_MAYBE_UNUSED args)
+    static bool prim_##name(PigeonVM* PIGEON_MAYBE_UNUSED vm, Value* PIGEON_MAYBE_UNUSED args)
 
 #define RETURN_VAL(value)                                                      \
     do                                                                         \
@@ -52,47 +52,47 @@
 #define RETURN_ERROR(msg)                                                      \
     do                                                                         \
     {                                                                          \
-      vm->fiber->error = wrenNewStringLength(vm, msg, sizeof(msg) - 1);        \
+      vm->fiber->error = pigeonNewStringLength(vm, msg, sizeof(msg) - 1);        \
       return false;                                                            \
     } while (false)
 
 #define RETURN_ERROR_FMT(...)                                                  \
     do                                                                         \
     {                                                                          \
-      vm->fiber->error = wrenStringFormat(vm, __VA_ARGS__);                    \
+      vm->fiber->error = pigeonStringFormat(vm, __VA_ARGS__);                    \
       return false;                                                            \
     } while (false)
 
 // Validates that the given [arg] is a function. Returns true if it is. If not,
 // reports an error and returns false.
-bool validateFn(WrenVM* vm, Value arg, const char* argName);
+bool validateFn(PigeonVM* vm, Value arg, const char* argName);
 
 // Validates that the given [arg] is a Num. Returns true if it is. If not,
 // reports an error and returns false.
-bool validateNum(WrenVM* vm, Value arg, const char* argName);
+bool validateNum(PigeonVM* vm, Value arg, const char* argName);
 
 // Validates that [value] is an integer. Returns true if it is. If not, reports
 // an error and returns false.
-bool validateIntValue(WrenVM* vm, double value, const char* argName);
+bool validateIntValue(PigeonVM* vm, double value, const char* argName);
 
 // Validates that the given [arg] is an integer. Returns true if it is. If not,
 // reports an error and returns false.
-bool validateInt(WrenVM* vm, Value arg, const char* argName);
+bool validateInt(PigeonVM* vm, Value arg, const char* argName);
 
 // Validates that [arg] is a valid object for use as a map key. Returns true if
 // it is. If not, reports an error and returns false.
-bool validateKey(WrenVM* vm, Value arg);
+bool validateKey(PigeonVM* vm, Value arg);
 
 // Validates that the argument at [argIndex] is an integer within `[0, count)`.
 // Also allows negative indices which map backwards from the end. Returns the
 // valid positive index value. If invalid, reports an error and returns
 // `UINT32_MAX`.
-uint32_t validateIndex(WrenVM* vm, Value arg, uint32_t count,
+uint32_t validateIndex(PigeonVM* vm, Value arg, uint32_t count,
                        const char* argName);
 
 // Validates that the given [arg] is a String. Returns true if it is. If not,
 // reports an error and returns false.
-bool validateString(WrenVM* vm, Value arg, const char* argName);
+bool validateString(PigeonVM* vm, Value arg, const char* argName);
 
 // Given a [range] and the [length] of the object being operated on, determines
 // the series of elements that should be chosen from the underlying object.
@@ -103,7 +103,7 @@ bool validateString(WrenVM* vm, Value arg, const char* argName);
 // elements in the resulting sequence. [step] will be direction that the range
 // is going: `1` if the range is increasing from the start index or `-1` if the
 // range is decreasing.
-uint32_t calculateRange(WrenVM* vm, ObjRange* range, uint32_t* length,
+uint32_t calculateRange(PigeonVM* vm, ObjRange* range, uint32_t* length,
                         int* step);
 
 #endif

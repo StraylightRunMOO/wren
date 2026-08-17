@@ -3,124 +3,124 @@
 
 #include "call.h"
 
-int callRunTests(WrenVM* vm)
+int callRunTests(PigeonVM* vm)
 {
-  wrenEnsureSlots(vm, 1);
-  wrenGetVariable(vm, "./test/api/call", "Call", 0);
-  WrenHandle* callClass = wrenGetSlotHandle(vm, 0);
+  pigeonEnsureSlots(vm, 1);
+  pigeonGetVariable(vm, "./test/api/call", "Call", 0);
+  PigeonHandle* callClass = pigeonGetSlotHandle(vm, 0);
 
-  WrenHandle* noParams = wrenMakeCallHandle(vm, "noParams");
-  WrenHandle* zero = wrenMakeCallHandle(vm, "zero()");
-  WrenHandle* one = wrenMakeCallHandle(vm, "one(_)");
-  WrenHandle* two = wrenMakeCallHandle(vm, "two(_,_)");
-  WrenHandle* unary = wrenMakeCallHandle(vm, "-");
-  WrenHandle* binary = wrenMakeCallHandle(vm, "-(_)");
-  WrenHandle* subscript = wrenMakeCallHandle(vm, "[_,_]");
-  WrenHandle* subscriptSet = wrenMakeCallHandle(vm, "[_,_]=(_)");
+  PigeonHandle* noParams = pigeonMakeCallHandle(vm, "noParams");
+  PigeonHandle* zero = pigeonMakeCallHandle(vm, "zero()");
+  PigeonHandle* one = pigeonMakeCallHandle(vm, "one(_)");
+  PigeonHandle* two = pigeonMakeCallHandle(vm, "two(_,_)");
+  PigeonHandle* unary = pigeonMakeCallHandle(vm, "-");
+  PigeonHandle* binary = pigeonMakeCallHandle(vm, "-(_)");
+  PigeonHandle* subscript = pigeonMakeCallHandle(vm, "[_,_]");
+  PigeonHandle* subscriptSet = pigeonMakeCallHandle(vm, "[_,_]=(_)");
 
   // Different arity.
-  wrenEnsureSlots(vm, 1);
-  wrenSetSlotHandle(vm, 0, callClass);
-  wrenCall(vm, noParams);
+  pigeonEnsureSlots(vm, 1);
+  pigeonSetSlotHandle(vm, 0, callClass);
+  pigeonCall(vm, noParams);
 
-  wrenEnsureSlots(vm, 1);
-  wrenSetSlotHandle(vm, 0, callClass);
-  wrenCall(vm, zero);
+  pigeonEnsureSlots(vm, 1);
+  pigeonSetSlotHandle(vm, 0, callClass);
+  pigeonCall(vm, zero);
 
-  wrenEnsureSlots(vm, 2);
-  wrenSetSlotHandle(vm, 0, callClass);
-  wrenSetSlotDouble(vm, 1, 1.0);
-  wrenCall(vm, one);
+  pigeonEnsureSlots(vm, 2);
+  pigeonSetSlotHandle(vm, 0, callClass);
+  pigeonSetSlotDouble(vm, 1, 1.0);
+  pigeonCall(vm, one);
 
-  wrenEnsureSlots(vm, 3);
-  wrenSetSlotHandle(vm, 0, callClass);
-  wrenSetSlotDouble(vm, 1, 1.0);
-  wrenSetSlotDouble(vm, 2, 2.0);
-  wrenCall(vm, two);
+  pigeonEnsureSlots(vm, 3);
+  pigeonSetSlotHandle(vm, 0, callClass);
+  pigeonSetSlotDouble(vm, 1, 1.0);
+  pigeonSetSlotDouble(vm, 2, 2.0);
+  pigeonCall(vm, two);
 
   // Operators.
-  wrenEnsureSlots(vm, 1);
-  wrenSetSlotHandle(vm, 0, callClass);
-  wrenCall(vm, unary);
+  pigeonEnsureSlots(vm, 1);
+  pigeonSetSlotHandle(vm, 0, callClass);
+  pigeonCall(vm, unary);
 
-  wrenEnsureSlots(vm, 2);
-  wrenSetSlotHandle(vm, 0, callClass);
-  wrenSetSlotDouble(vm, 1, 1.0);
-  wrenCall(vm, binary);
+  pigeonEnsureSlots(vm, 2);
+  pigeonSetSlotHandle(vm, 0, callClass);
+  pigeonSetSlotDouble(vm, 1, 1.0);
+  pigeonCall(vm, binary);
 
-  wrenEnsureSlots(vm, 3);
-  wrenSetSlotHandle(vm, 0, callClass);
-  wrenSetSlotDouble(vm, 1, 1.0);
-  wrenSetSlotDouble(vm, 2, 2.0);
-  wrenCall(vm, subscript);
+  pigeonEnsureSlots(vm, 3);
+  pigeonSetSlotHandle(vm, 0, callClass);
+  pigeonSetSlotDouble(vm, 1, 1.0);
+  pigeonSetSlotDouble(vm, 2, 2.0);
+  pigeonCall(vm, subscript);
 
-  wrenEnsureSlots(vm, 4);
-  wrenSetSlotHandle(vm, 0, callClass);
-  wrenSetSlotDouble(vm, 1, 1.0);
-  wrenSetSlotDouble(vm, 2, 2.0);
-  wrenSetSlotDouble(vm, 3, 3.0);
-  wrenCall(vm, subscriptSet);
+  pigeonEnsureSlots(vm, 4);
+  pigeonSetSlotHandle(vm, 0, callClass);
+  pigeonSetSlotDouble(vm, 1, 1.0);
+  pigeonSetSlotDouble(vm, 2, 2.0);
+  pigeonSetSlotDouble(vm, 3, 3.0);
+  pigeonCall(vm, subscriptSet);
 
   // Returning a value.
-  WrenHandle* getValue = wrenMakeCallHandle(vm, "getValue()");
-  wrenEnsureSlots(vm, 1);
-  wrenSetSlotHandle(vm, 0, callClass);
-  wrenCall(vm, getValue);
-  printf("slots after call: %d\n", wrenGetSlotCount(vm));
-  WrenHandle* value = wrenGetSlotHandle(vm, 0);
+  PigeonHandle* getValue = pigeonMakeCallHandle(vm, "getValue()");
+  pigeonEnsureSlots(vm, 1);
+  pigeonSetSlotHandle(vm, 0, callClass);
+  pigeonCall(vm, getValue);
+  printf("slots after call: %d\n", pigeonGetSlotCount(vm));
+  PigeonHandle* value = pigeonGetSlotHandle(vm, 0);
 
   // Different argument types.
-  wrenEnsureSlots(vm, 3);
-  wrenSetSlotHandle(vm, 0, callClass);
-  wrenSetSlotBool(vm, 1, true);
-  wrenSetSlotBool(vm, 2, false);
-  wrenCall(vm, two);
+  pigeonEnsureSlots(vm, 3);
+  pigeonSetSlotHandle(vm, 0, callClass);
+  pigeonSetSlotBool(vm, 1, true);
+  pigeonSetSlotBool(vm, 2, false);
+  pigeonCall(vm, two);
 
-  wrenEnsureSlots(vm, 3);
-  wrenSetSlotHandle(vm, 0, callClass);
-  wrenSetSlotDouble(vm, 1, 1.2);
-  wrenSetSlotDouble(vm, 2, 3.4);
-  wrenCall(vm, two);
+  pigeonEnsureSlots(vm, 3);
+  pigeonSetSlotHandle(vm, 0, callClass);
+  pigeonSetSlotDouble(vm, 1, 1.2);
+  pigeonSetSlotDouble(vm, 2, 3.4);
+  pigeonCall(vm, two);
 
-  wrenEnsureSlots(vm, 3);
-  wrenSetSlotHandle(vm, 0, callClass);
-  wrenSetSlotString(vm, 1, "string");
-  wrenSetSlotString(vm, 2, "another");
-  wrenCall(vm, two);
+  pigeonEnsureSlots(vm, 3);
+  pigeonSetSlotHandle(vm, 0, callClass);
+  pigeonSetSlotString(vm, 1, "string");
+  pigeonSetSlotString(vm, 2, "another");
+  pigeonCall(vm, two);
 
-  wrenEnsureSlots(vm, 3);
-  wrenSetSlotHandle(vm, 0, callClass);
-  wrenSetSlotNull(vm, 1);
-  wrenSetSlotHandle(vm, 2, value);
-  wrenCall(vm, two);
+  pigeonEnsureSlots(vm, 3);
+  pigeonSetSlotHandle(vm, 0, callClass);
+  pigeonSetSlotNull(vm, 1);
+  pigeonSetSlotHandle(vm, 2, value);
+  pigeonCall(vm, two);
 
   // Truncate a string, or allow null bytes.
-  wrenEnsureSlots(vm, 3);
-  wrenSetSlotHandle(vm, 0, callClass);
-  wrenSetSlotBytes(vm, 1, "string", 3);
-  wrenSetSlotBytes(vm, 2, "b\0y\0t\0e", 7);
-  wrenCall(vm, two);
+  pigeonEnsureSlots(vm, 3);
+  pigeonSetSlotHandle(vm, 0, callClass);
+  pigeonSetSlotBytes(vm, 1, "string", 3);
+  pigeonSetSlotBytes(vm, 2, "b\0y\0t\0e", 7);
+  pigeonCall(vm, two);
 
   // Call ignores with extra temporary slots on stack.
-  wrenEnsureSlots(vm, 10);
-  wrenSetSlotHandle(vm, 0, callClass);
+  pigeonEnsureSlots(vm, 10);
+  pigeonSetSlotHandle(vm, 0, callClass);
   for (int i = 1; i < 10; i++)
   {
-    wrenSetSlotDouble(vm, i, i * 0.1);
+    pigeonSetSlotDouble(vm, i, i * 0.1);
   }
-  wrenCall(vm, one);
+  pigeonCall(vm, one);
 
-  wrenReleaseHandle(vm, callClass);
-  wrenReleaseHandle(vm, noParams);
-  wrenReleaseHandle(vm, zero);
-  wrenReleaseHandle(vm, one);
-  wrenReleaseHandle(vm, two);
-  wrenReleaseHandle(vm, getValue);
-  wrenReleaseHandle(vm, value);
-  wrenReleaseHandle(vm, unary);
-  wrenReleaseHandle(vm, binary);
-  wrenReleaseHandle(vm, subscript);
-  wrenReleaseHandle(vm, subscriptSet);
+  pigeonReleaseHandle(vm, callClass);
+  pigeonReleaseHandle(vm, noParams);
+  pigeonReleaseHandle(vm, zero);
+  pigeonReleaseHandle(vm, one);
+  pigeonReleaseHandle(vm, two);
+  pigeonReleaseHandle(vm, getValue);
+  pigeonReleaseHandle(vm, value);
+  pigeonReleaseHandle(vm, unary);
+  pigeonReleaseHandle(vm, binary);
+  pigeonReleaseHandle(vm, subscript);
+  pigeonReleaseHandle(vm, subscriptSet);
 
   return 0;
 }

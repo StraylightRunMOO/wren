@@ -1,5 +1,5 @@
-#ifndef wren_vm_h
-#define wren_vm_h
+#ifndef pigeon_vm_h
+#define pigeon_vm_h
 
 #include "wren_common.h"
 #include "wren_compiler.h"
@@ -8,7 +8,7 @@
 
 // The maximum number of temporary objects that can be made visible to the GC
 // at one time.
-#define WREN_MAX_TEMP_ROOTS 8
+#define PIGEON_MAX_TEMP_ROOTS 8
 
 typedef enum
 {
@@ -20,15 +20,15 @@ typedef enum
 // A handle to a value, basically just a linked list of extra GC roots.
 //
 // Note that even non-heap-allocated values can be stored here.
-struct WrenHandle
+struct PigeonHandle
 {
   Value value;
 
-  WrenHandle* prev;
-  WrenHandle* next;
+  PigeonHandle* prev;
+  PigeonHandle* next;
 };
 
-struct WrenVM
+struct PigeonVM
 {
   ObjClass* boolClass;
   ObjClass* classClass;
@@ -43,11 +43,11 @@ struct WrenVM
   ObjClass* stringClass;
   ObjClass* generatorClass;
 
-  // Head of the linked list of all live WrenIterator objects.
+  // Head of the linked list of all live PigeonIterator objects.
   // Used to force-close generators before the host event loop exits.
-  struct WrenIterator* liveIterators;
+  struct PigeonIterator* liveIterators;
 
-  // Nesting depth of wrenInterpret on this VM. Outermost call owns the
+  // Nesting depth of pigeonInterpret on this VM. Outermost call owns the
   // Suspenders runtime; nested calls (e.g. Meta.eval) run in-place.
   int interpretNestingLevel;
 
@@ -91,24 +91,24 @@ struct WrenVM
   // They are organized as a stack of pointers stored in this array. This
   // implies that temporary roots need to have stack semantics: only the most
   // recently pushed object can be released.
-  Obj* tempRoots[WREN_MAX_TEMP_ROOTS];
+  Obj* tempRoots[PIGEON_MAX_TEMP_ROOTS];
 
   int numTempRoots;
   
   // Pointer to the first node in the linked list of active handles or NULL if
   // there are none.
-  WrenHandle* handles;
+  PigeonHandle* handles;
   
   // Pointer to the bottom of the range of stack slots available for use from
   // the C API. During a foreign method, this will be in the stack of the fiber
   // that is executing a method.
   //
   // If not in a foreign method, this is initially NULL. If the user requests
-  // slots by calling wrenEnsureSlots(), a stack is created and this is
+  // slots by calling pigeonEnsureSlots(), a stack is created and this is
   // initialized.
   Value* apiStack;
 
-  WrenConfiguration config;
+  PigeonConfiguration config;
   
   // Compiler and debugger data:
 
@@ -130,7 +130,7 @@ struct WrenVM
 };
 
 // Default host allocator: Memento thread heap with a size-prefix header.
-void* wrenDefaultReallocate(void* memory, size_t newSize, void* userData);
+void* pigeonDefaultReallocate(void* memory, size_t newSize, void* userData);
 
 // A generic allocation function that handles all explicit memory management.
 // It's used like so:
@@ -148,30 +148,30 @@ void* wrenDefaultReallocate(void* memory, size_t newSize, void* userData);
 //
 // - To free memory, [memory] will be the memory to free and [newSize] and
 //   [oldSize] will be zero. It should return NULL.
-void* wrenReallocate(WrenVM* vm, void* memory, size_t oldSize, size_t newSize);
+void* pigeonReallocate(PigeonVM* vm, void* memory, size_t oldSize, size_t newSize);
 
 // Invoke the finalizer for the foreign object referenced by [foreign].
-void wrenFinalizeForeign(WrenVM* vm, ObjForeign* foreign);
+void pigeonFinalizeForeign(PigeonVM* vm, ObjForeign* foreign);
 
-// Creates a new [WrenHandle] for [value].
-WrenHandle* wrenMakeHandle(WrenVM* vm, Value value);
+// Creates a new [PigeonHandle] for [value].
+PigeonHandle* pigeonMakeHandle(PigeonVM* vm, Value value);
 
 // Compile [source] in the context of [module] and wrap in a fiber that can
 // execute it.
 //
 // Returns NULL if a compile error occurred.
-ObjClosure* wrenCompileSource(WrenVM* vm, const char* module,
+ObjClosure* pigeonCompileSource(PigeonVM* vm, const char* module,
                               const char* source, bool isExpression,
                               bool printErrors);
 
 // Looks up a variable from a previously-loaded module.
 //
 // Aborts the current fiber if the module or variable could not be found.
-Value wrenGetModuleVariable(WrenVM* vm, Value moduleName, Value variableName);
+Value pigeonGetModuleVariable(PigeonVM* vm, Value moduleName, Value variableName);
 
 // Returns the value of the module-level variable named [name] in the main
 // module.
-Value wrenFindVariable(WrenVM* vm, ObjModule* module, const char* name);
+Value pigeonFindVariable(PigeonVM* vm, ObjModule* module, const char* name);
 
 // Adds a new implicitly declared top-level variable named [name] to [module]
 // based on a use site occurring on [line].
@@ -179,7 +179,7 @@ Value wrenFindVariable(WrenVM* vm, ObjModule* module, const char* name);
 // Does not check to see if a variable with that name is already declared or
 // defined. Returns the symbol for the new variable or -2 if there are too many
 // variables defined.
-int wrenDeclareVariable(WrenVM* vm, ObjModule* module, const char* name,
+int pigeonDeclareVariable(PigeonVM* vm, ObjModule* module, const char* name,
                         size_t length, int line);
 
 // Adds a new top-level variable named [name] to [module], and optionally
@@ -189,19 +189,19 @@ int wrenDeclareVariable(WrenVM* vm, ObjModule* module, const char* name,
 // is already defined, or -2 if there are too many variables defined.
 // Returns -3 if this is a top-level lowercase variable (localname) that was
 // used before being defined.
-int wrenDefineVariable(WrenVM* vm, ObjModule* module, const char* name,
+int pigeonDefineVariable(PigeonVM* vm, ObjModule* module, const char* name,
                        size_t length, Value value, int* line);
 
 // Pushes [closure] onto [fiber]'s callstack to invoke it. Expects [numArgs]
 // arguments (including the receiver) to be on the top of the stack already.
-static inline void wrenCallFunction(WrenVM* vm, ObjFiber* fiber,
+static inline void pigeonCallFunction(PigeonVM* vm, ObjFiber* fiber,
                                     ObjClosure* closure, int numArgs)
 {
   // Grow the call frame array if needed.
   if (fiber->numFrames + 1 > fiber->frameCapacity)
   {
     int max = fiber->frameCapacity * 2;
-    fiber->frames = (CallFrame*)wrenReallocate(vm, fiber->frames,
+    fiber->frames = (CallFrame*)pigeonReallocate(vm, fiber->frames,
         sizeof(CallFrame) * fiber->frameCapacity, sizeof(CallFrame) * max);
     fiber->frameCapacity = max;
   }
@@ -209,28 +209,28 @@ static inline void wrenCallFunction(WrenVM* vm, ObjFiber* fiber,
   // Grow the stack if needed.
   int stackSize = (int)(fiber->stackTop - fiber->stack);
   int needed = stackSize + closure->fn->maxSlots;
-  wrenEnsureStack(vm, fiber, needed);
+  pigeonEnsureStack(vm, fiber, needed);
   
-  wrenAppendCallFrame(vm, fiber, closure, fiber->stackTop - numArgs);
+  pigeonAppendCallFrame(vm, fiber, closure, fiber->stackTop - numArgs);
 }
 
 // Marks [obj] as a GC root so that it doesn't get collected.
-void wrenPushRoot(WrenVM* vm, Obj* obj);
+void pigeonPushRoot(PigeonVM* vm, Obj* obj);
 
 // Removes the most recently pushed temporary root.
-void wrenPopRoot(WrenVM* vm);
+void pigeonPopRoot(PigeonVM* vm);
 
 // Returns the class of [value].
 //
 // Defined here instead of in wren_value.h because it's critical that this be
 // inlined. That means it must be defined in the header, but the wren_value.h
-// header doesn't have a full definitely of WrenVM yet.
-static inline ObjClass* wrenGetClassInline(WrenVM* vm, Value value)
+// header doesn't have a full definitely of PigeonVM yet.
+static inline ObjClass* pigeonGetClassInline(PigeonVM* vm, Value value)
 {
   if (IS_NUM(value)) return vm->numClass;
   if (IS_OBJ(value)) return AS_OBJ(value)->classObj;
 
-#if WREN_NAN_TAGGING
+#if PIGEON_NAN_TAGGING
   switch (GET_TAG(value))
   {
     case TAG_FALSE:     return vm->boolClass; break;
@@ -257,12 +257,12 @@ static inline ObjClass* wrenGetClassInline(WrenVM* vm, Value value)
 
 // Returns `true` if [name] is a local variable name (starts with a lowercase
 // letter).
-static inline bool wrenIsLocalName(const char* name)
+static inline bool pigeonIsLocalName(const char* name)
 {
   return name[0] >= 'a' && name[0] <= 'z';
 }
 
-static inline bool wrenIsFalsyValue(Value value)
+static inline bool pigeonIsFalsyValue(Value value)
 {
   // false, null, and numeric 0 / 0.0. Collections stay truthy (including
   // empty [] / {}) so `if` and `!` agree: `!` is Object's method and

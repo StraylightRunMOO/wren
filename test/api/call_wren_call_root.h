@@ -1,3 +1,3 @@
-#include "wren.h"
+#include "pigeon.h"
 
-int callWrenCallRootRunTests(WrenVM* vm);
+int callWrenCallRootRunTests(PigeonVM* vm);

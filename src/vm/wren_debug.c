@@ -2,7 +2,7 @@
 
 #include "wren_debug.h"
 
-void wrenDebugPrintStackTrace(WrenVM* vm)
+void pigeonDebugPrintStackTrace(PigeonVM* vm)
 {
   // Bail if the host doesn't enable printing errors.
   if (vm->config.errorFn == NULL) return;
@@ -10,14 +10,14 @@ void wrenDebugPrintStackTrace(WrenVM* vm)
   ObjFiber* fiber = vm->fiber;
   if (IS_STRING(fiber->error))
   {
-    vm->config.errorFn(vm, WREN_ERROR_RUNTIME,
+    vm->config.errorFn(vm, PIGEON_ERROR_RUNTIME,
                        NULL, -1, AS_CSTRING(fiber->error));
   }
   else
   {
     // TODO: Print something a little useful here. Maybe the name of the error's
     // class?
-    vm->config.errorFn(vm, WREN_ERROR_RUNTIME,
+    vm->config.errorFn(vm, PIGEON_ERROR_RUNTIME,
                        NULL, -1, "[error object]");
   }
 
@@ -36,7 +36,7 @@ void wrenDebugPrintStackTrace(WrenVM* vm)
     
     // -1 because IP has advanced past the instruction that it just executed.
     int line = fn->debug->sourceLines.data[frame->ip - fn->code.data - 1];
-    vm->config.errorFn(vm, WREN_ERROR_STACK_TRACE,
+    vm->config.errorFn(vm, PIGEON_ERROR_STACK_TRACE,
                        fn->module->name->value, line,
                        fn->debug->name);
   }
@@ -64,9 +64,9 @@ static void dumpObject(Obj* obj)
   }
 }
 
-void wrenDumpValue(Value value)
+void pigeonDumpValue(Value value)
 {
-#if WREN_NAN_TAGGING
+#if PIGEON_NAN_TAGGING
   if (IS_NUM(value))
   {
     printf("%.14g", AS_NUM(value));
@@ -99,7 +99,7 @@ void wrenDumpValue(Value value)
 #endif
 }
 
-static int dumpInstruction(WrenVM* vm, ObjFn* fn, int i, int* lastLine)
+static int dumpInstruction(PigeonVM* vm, ObjFn* fn, int i, int* lastLine)
 {
   int start = i;
   uint8_t* bytecode = fn->code.data;
@@ -131,7 +131,7 @@ static int dumpInstruction(WrenVM* vm, ObjFn* fn, int i, int* lastLine)
     {
       int constant = READ_SHORT();
       printf("%-16s %5d '", "CONSTANT", constant);
-      wrenDumpValue(fn->constants.data[constant]);
+      pigeonDumpValue(fn->constants.data[constant]);
       printf("'\n");
       break;
     }
@@ -279,7 +279,7 @@ static int dumpInstruction(WrenVM* vm, ObjFn* fn, int i, int* lastLine)
     {
       int constant = READ_SHORT();
       printf("%-16s %5d ", "CLOSURE", constant);
-      wrenDumpValue(fn->constants.data[constant]);
+      pigeonDumpValue(fn->constants.data[constant]);
       printf(" ");
       ObjFn* loadedFn = AS_FN(fn->constants.data[constant]);
       for (int j = 0; j < loadedFn->numUpvalues; j++)
@@ -330,7 +330,7 @@ static int dumpInstruction(WrenVM* vm, ObjFn* fn, int i, int* lastLine)
     {
       int name = READ_SHORT();
       printf("%-16s %5d '", "IMPORT_MODULE", name);
-      wrenDumpValue(fn->constants.data[name]);
+      pigeonDumpValue(fn->constants.data[name]);
       printf("'\n");
       break;
     }
@@ -339,7 +339,7 @@ static int dumpInstruction(WrenVM* vm, ObjFn* fn, int i, int* lastLine)
     {
       int variable = READ_SHORT();
       printf("%-16s %5d '", "IMPORT_VARIABLE", variable);
-      wrenDumpValue(fn->constants.data[variable]);
+      pigeonDumpValue(fn->constants.data[variable]);
       printf("'\n");
       break;
     }
@@ -361,12 +361,12 @@ static int dumpInstruction(WrenVM* vm, ObjFn* fn, int i, int* lastLine)
   #undef READ_SHORT
 }
 
-int wrenDumpInstruction(WrenVM* vm, ObjFn* fn, int i)
+int pigeonDumpInstruction(PigeonVM* vm, ObjFn* fn, int i)
 {
   return dumpInstruction(vm, fn, i, NULL);
 }
 
-void wrenDumpCode(WrenVM* vm, ObjFn* fn)
+void pigeonDumpCode(PigeonVM* vm, ObjFn* fn)
 {
   printf("%s: %s\n",
          fn->module->name == NULL ? "<core>" : fn->module->name->value,
@@ -384,12 +384,12 @@ void wrenDumpCode(WrenVM* vm, ObjFn* fn)
   printf("\n");
 }
 
-void wrenDumpStack(ObjFiber* fiber)
+void pigeonDumpStack(ObjFiber* fiber)
 {
   printf("(fiber %p) ", fiber);
   for (Value* slot = fiber->stack; slot < fiber->stackTop; slot++)
   {
-    wrenDumpValue(*slot);
+    pigeonDumpValue(*slot);
     printf(" | ");
   }
   printf("\n");

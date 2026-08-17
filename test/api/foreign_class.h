@@ -1,5 +1,5 @@
-#include "wren.h"
+#include "pigeon.h"
 
-WrenForeignMethodFn foreignClassBindMethod(const char* signature);
+PigeonForeignMethodFn foreignClassBindMethod(const char* signature);
 void foreignClassBindClass(
-    const char* className, WrenForeignClassMethods* methods);
+    const char* className, PigeonForeignClassMethods* methods);

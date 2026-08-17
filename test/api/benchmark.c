@@ -3,16 +3,16 @@
 
 #include "benchmark.h"
 
-static void arguments(WrenVM* vm)
+static void arguments(PigeonVM* vm)
 {
   double result = 0;
 
-  result += wrenGetSlotDouble(vm, 1);
-  result += wrenGetSlotDouble(vm, 2);
-  result += wrenGetSlotDouble(vm, 3);
-  result += wrenGetSlotDouble(vm, 4);
+  result += pigeonGetSlotDouble(vm, 1);
+  result += pigeonGetSlotDouble(vm, 2);
+  result += pigeonGetSlotDouble(vm, 3);
+  result += pigeonGetSlotDouble(vm, 4);
 
-  wrenSetSlotDouble(vm, 0, result);
+  pigeonSetSlotDouble(vm, 0, result);
 }
 
 const char* testScript =
@@ -20,59 +20,59 @@ const char* testScript =
 "  static method(a, b, c, d) { a + b + c + d }\n"
 "}\n";
 
-static void call(WrenVM* vm)
+static void call(PigeonVM* vm)
 {
-  int iterations = (int)wrenGetSlotDouble(vm, 1);
+  int iterations = (int)pigeonGetSlotDouble(vm, 1);
 
   // Since the VM is not re-entrant, we can't call from within this foreign
   // method. Instead, make a new VM to run the call test in.
-  WrenConfiguration config;
-  wrenInitConfiguration(&config);
-  WrenVM* otherVM = wrenNewVM(&config);
+  PigeonConfiguration config;
+  pigeonInitConfiguration(&config);
+  PigeonVM* otherVM = pigeonNewVM(&config);
 
-  wrenInterpret(otherVM, "main", testScript);
+  pigeonInterpret(otherVM, "main", testScript);
 
-  WrenHandle* method = wrenMakeCallHandle(otherVM, "method(_,_,_,_)");
+  PigeonHandle* method = pigeonMakeCallHandle(otherVM, "method(_,_,_,_)");
 
-  wrenEnsureSlots(otherVM, 1);
-  wrenGetVariable(otherVM, "main", "Test", 0);
-  WrenHandle* testClass = wrenGetSlotHandle(otherVM, 0);
+  pigeonEnsureSlots(otherVM, 1);
+  pigeonGetVariable(otherVM, "main", "Test", 0);
+  PigeonHandle* testClass = pigeonGetSlotHandle(otherVM, 0);
 
   double startTime = (double)clock() / CLOCKS_PER_SEC;
 
   double result = 0;
   for (int i = 0; i < iterations; i++)
   {
-    wrenEnsureSlots(otherVM, 5);
-    wrenSetSlotHandle(otherVM, 0, testClass);
-    wrenSetSlotDouble(otherVM, 1, 1.0);
-    wrenSetSlotDouble(otherVM, 2, 2.0);
-    wrenSetSlotDouble(otherVM, 3, 3.0);
-    wrenSetSlotDouble(otherVM, 4, 4.0);
+    pigeonEnsureSlots(otherVM, 5);
+    pigeonSetSlotHandle(otherVM, 0, testClass);
+    pigeonSetSlotDouble(otherVM, 1, 1.0);
+    pigeonSetSlotDouble(otherVM, 2, 2.0);
+    pigeonSetSlotDouble(otherVM, 3, 3.0);
+    pigeonSetSlotDouble(otherVM, 4, 4.0);
 
-    wrenCall(otherVM, method);
+    pigeonCall(otherVM, method);
 
-    result += wrenGetSlotDouble(otherVM, 0);
+    result += pigeonGetSlotDouble(otherVM, 0);
   }
 
   double elapsed = (double)clock() / CLOCKS_PER_SEC - startTime;
 
-  wrenReleaseHandle(otherVM, testClass);
-  wrenReleaseHandle(otherVM, method);
-  wrenFreeVM(otherVM);
+  pigeonReleaseHandle(otherVM, testClass);
+  pigeonReleaseHandle(otherVM, method);
+  pigeonFreeVM(otherVM);
 
   if (result == (1.0 + 2.0 + 3.0 + 4.0) * iterations)
   {
-    wrenSetSlotDouble(vm, 0, elapsed);
+    pigeonSetSlotDouble(vm, 0, elapsed);
   }
   else
   {
     // Got the wrong result.
-    wrenSetSlotBool(vm, 0, false);
+    pigeonSetSlotBool(vm, 0, false);
   }
 }
 
-WrenForeignMethodFn benchmarkBindMethod(const char* signature)
+PigeonForeignMethodFn benchmarkBindMethod(const char* signature)
 {
   if (strcmp(signature, "static Benchmark.arguments(_,_,_,_)") == 0) return arguments;
   if (strcmp(signature, "static Benchmark.call(_)") == 0) return call;

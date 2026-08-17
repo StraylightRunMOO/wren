@@ -1,5 +1,5 @@
-#ifndef wren_value_h
-#define wren_value_h
+#ifndef pigeon_value_h
+#define pigeon_value_h
 
 #include <stdbool.h>
 #include <string.h>
@@ -40,7 +40,7 @@
 // point number. A larger, slower, Value type that uses a struct to store these
 // is also supported, and is useful for debugging the VM.
 //
-// The representation is controlled by the `WREN_NAN_TAGGING` define. If that's
+// The representation is controlled by the `PIGEON_NAN_TAGGING` define. If that's
 // defined, Nan tagging is used.
 
 // These macros cast a Value to one of the specific object types. These do *not*
@@ -55,7 +55,7 @@
 #define AS_LIST(value)      ((ObjList*)AS_OBJ(value))           // ObjList*
 #define AS_MAP(value)       ((ObjMap*)AS_OBJ(value))            // ObjMap*
 #define AS_MODULE(value)    ((ObjModule*)AS_OBJ(value))         // ObjModule*
-#define AS_NUM(value)       (wrenValueToNum(value))             // double
+#define AS_NUM(value)       (pigeonValueToNum(value))             // double
 #define AS_RANGE(v)         ((ObjRange*)AS_OBJ(v))              // ObjRange*
 #define AS_STRING(v)        ((ObjString*)AS_OBJ(v))             // ObjString*
 #define AS_CSTRING(v)       (AS_STRING(v)->value)               // const char*
@@ -64,27 +64,27 @@
 // more defined below that are specific to the Nan tagged or other
 // representation.
 #define BOOL_VAL(boolean) ((boolean) ? TRUE_VAL : FALSE_VAL)    // boolean
-#define NUM_VAL(num) (wrenNumToValue(num))                      // double
-#define OBJ_VAL(obj) (wrenObjectToValue((Obj*)(obj)))           // Any Obj___*
+#define NUM_VAL(num) (pigeonNumToValue(num))                      // double
+#define OBJ_VAL(obj) (pigeonObjectToValue((Obj*)(obj)))           // Any Obj___*
 
 // These perform type tests on a Value, returning `true` if the Value is of the
 // given type.
-#define IS_BOOL(value) (wrenIsBool(value))                      // Bool
-#define IS_CLASS(value) (wrenIsObjType(value, OBJ_CLASS))       // ObjClass
-#define IS_CLOSURE(value) (wrenIsObjType(value, OBJ_CLOSURE))   // ObjClosure
-#define IS_FIBER(value) (wrenIsObjType(value, OBJ_FIBER))       // ObjFiber
-#define IS_FN(value) (wrenIsObjType(value, OBJ_FN))             // ObjFn
-#define IS_FOREIGN(value) (wrenIsObjType(value, OBJ_FOREIGN))   // ObjForeign
-#define IS_INSTANCE(value) (wrenIsObjType(value, OBJ_INSTANCE)) // ObjInstance
-#define IS_LIST(value) (wrenIsObjType(value, OBJ_LIST))         // ObjList
-#define IS_MAP(value) (wrenIsObjType(value, OBJ_MAP))           // ObjMap
-#define IS_RANGE(value) (wrenIsObjType(value, OBJ_RANGE))       // ObjRange
-#define IS_STRING(value) (wrenIsObjType(value, OBJ_STRING))     // ObjString
+#define IS_BOOL(value) (pigeonIsBool(value))                      // Bool
+#define IS_CLASS(value) (pigeonIsObjType(value, OBJ_CLASS))       // ObjClass
+#define IS_CLOSURE(value) (pigeonIsObjType(value, OBJ_CLOSURE))   // ObjClosure
+#define IS_FIBER(value) (pigeonIsObjType(value, OBJ_FIBER))       // ObjFiber
+#define IS_FN(value) (pigeonIsObjType(value, OBJ_FN))             // ObjFn
+#define IS_FOREIGN(value) (pigeonIsObjType(value, OBJ_FOREIGN))   // ObjForeign
+#define IS_INSTANCE(value) (pigeonIsObjType(value, OBJ_INSTANCE)) // ObjInstance
+#define IS_LIST(value) (pigeonIsObjType(value, OBJ_LIST))         // ObjList
+#define IS_MAP(value) (pigeonIsObjType(value, OBJ_MAP))           // ObjMap
+#define IS_RANGE(value) (pigeonIsObjType(value, OBJ_RANGE))       // ObjRange
+#define IS_STRING(value) (pigeonIsObjType(value, OBJ_STRING))     // ObjString
 
 // Creates a new string object from [text], which should be a bare C string
 // literal. This determines the length of the string automatically at compile
 // time based on the size of the character array (-1 for the terminating '\0').
-#define CONST_STRING(vm, text) wrenNewStringLength((vm), (text), sizeof(text) - 1)
+#define CONST_STRING(vm, text) pigeonNewStringLength((vm), (text), sizeof(text) - 1)
 
 // Identifies which specific type a heap-allocated object is.
 typedef enum {
@@ -118,7 +118,7 @@ struct sObj
   struct sObj* next;
 };
 
-#if WREN_NAN_TAGGING
+#if PIGEON_NAN_TAGGING
 
 typedef uint64_t Value;
 
@@ -200,7 +200,7 @@ typedef struct sObjUpvalue
 // VM internals. It is passed the arguments in [args]. If it returns a value,
 // it places it in `args[0]` and returns `true`. If it causes a runtime error
 // or modifies the running fiber, it returns `false`.
-typedef bool (*Primitive)(WrenVM* vm, Value* args);
+typedef bool (*Primitive)(PigeonVM* vm, Value* args);
 
 // Defined after Method below. One slot per bytecode byte; only CALL sites
 // are used. klass == NULL means empty.
@@ -312,7 +312,7 @@ typedef enum
   FIBER_TRY,
   
   // The fiber was directly invoked by `runInterpreter()`. This means it's the
-  // initial fiber used by a call to `wrenCall()` or `wrenInterpret()`.
+  // initial fiber used by a call to `pigeonCall()` or `pigeonInterpret()`.
   FIBER_ROOT,
   
   // The fiber is invoked some other way. If [caller] is `NULL` then the fiber
@@ -391,7 +391,7 @@ typedef struct
   union
   {
     Primitive primitive;
-    WrenForeignMethodFn foreign;
+    PigeonForeignMethodFn foreign;
     ObjClosure* closure;
   } as;
 } Method;
@@ -562,7 +562,7 @@ typedef struct
 // all stuffed into a single 64-bit sequence. Even better, we don't have to
 // do any masking or work to extract number values: they are unmodified. This
 // means math on numbers is fast.
-#if WREN_NAN_TAGGING
+#if PIGEON_NAN_TAGGING
 
 // A mask that selects the sign bit.
 #define SIGN_BIT ((uint64_t)1 << 63)
@@ -635,29 +635,29 @@ typedef struct
 // Creates a new "raw" class. It has no metaclass or superclass whatsoever.
 // This is only used for bootstrapping the initial Object and Class classes,
 // which are a little special.
-ObjClass* wrenNewSingleClass(WrenVM* vm, int numFields, ObjString* name);
+ObjClass* pigeonNewSingleClass(PigeonVM* vm, int numFields, ObjString* name);
 
 // Makes [superclass] the superclass of [subclass], and causes subclass to
 // inherit its methods. This should be called before any methods are defined
 // on subclass.
-void wrenBindSuperclass(WrenVM* vm, ObjClass* subclass, ObjClass* superclass);
+void pigeonBindSuperclass(PigeonVM* vm, ObjClass* subclass, ObjClass* superclass);
 
 // Creates a new class object as well as its associated metaclass.
-ObjClass* wrenNewClass(WrenVM* vm, ObjClass* superclass, int numFields,
+ObjClass* pigeonNewClass(PigeonVM* vm, ObjClass* superclass, int numFields,
                        ObjString* name);
 
-void wrenBindMethod(WrenVM* vm, ObjClass* classObj, int symbol, Method method);
+void pigeonBindMethod(PigeonVM* vm, ObjClass* classObj, int symbol, Method method);
 
 // Creates a new closure object that invokes [fn]. Allocates room for its
 // upvalues, but assumes outside code will populate it.
-ObjClosure* wrenNewClosure(WrenVM* vm, ObjFn* fn);
+ObjClosure* pigeonNewClosure(PigeonVM* vm, ObjFn* fn);
 
 // Creates a new fiber object that will invoke [closure].
-ObjFiber* wrenNewFiber(WrenVM* vm, ObjClosure* closure);
+ObjFiber* pigeonNewFiber(PigeonVM* vm, ObjClosure* closure);
 
 // Adds a new [CallFrame] to [fiber] invoking [closure] whose stack starts at
 // [stackStart].
-static inline void wrenAppendCallFrame(WrenVM* WREN_MAYBE_UNUSED vm, ObjFiber* fiber,
+static inline void pigeonAppendCallFrame(PigeonVM* PIGEON_MAYBE_UNUSED vm, ObjFiber* fiber,
                                        ObjClosure* closure, Value* stackStart)
 {
   // The caller should have ensured we already have enough capacity.
@@ -670,82 +670,82 @@ static inline void wrenAppendCallFrame(WrenVM* WREN_MAYBE_UNUSED vm, ObjFiber* f
 }
 
 // Ensures [fiber]'s stack has at least [needed] slots.
-void wrenEnsureStack(WrenVM* vm, ObjFiber* fiber, int needed);
+void pigeonEnsureStack(PigeonVM* vm, ObjFiber* fiber, int needed);
 
-static inline bool wrenHasError(const ObjFiber* fiber)
+static inline bool pigeonHasError(const ObjFiber* fiber)
 {
   return !IS_NULL(fiber->error);
 }
 
-ObjForeign* wrenNewForeign(WrenVM* vm, ObjClass* classObj, size_t size);
+ObjForeign* pigeonNewForeign(PigeonVM* vm, ObjClass* classObj, size_t size);
 
 // Creates a new empty function. Before being used, it must have code,
 // constants, etc. added to it.
-ObjFn* wrenNewFunction(WrenVM* vm, ObjModule* module, int maxSlots);
+ObjFn* pigeonNewFunction(PigeonVM* vm, ObjModule* module, int maxSlots);
 
-void wrenFunctionBindName(WrenVM* vm, ObjFn* fn, const char* name, int length);
+void pigeonFunctionBindName(PigeonVM* vm, ObjFn* fn, const char* name, int length);
 
 // Creates a new instance of the given [classObj].
-Value wrenNewInstance(WrenVM* vm, ObjClass* classObj);
+Value pigeonNewInstance(PigeonVM* vm, ObjClass* classObj);
 
 // Creates a new list with [numElements] elements (which are left
 // uninitialized.)
-ObjList* wrenNewList(WrenVM* vm, uint32_t numElements);
+ObjList* pigeonNewList(PigeonVM* vm, uint32_t numElements);
 
 // Inserts [value] in [list] at [index], shifting down the other elements.
-void wrenListInsert(WrenVM* vm, ObjList* list, Value value, uint32_t index);
+void pigeonListInsert(PigeonVM* vm, ObjList* list, Value value, uint32_t index);
 
 // Removes and returns the item at [index] from [list].
-Value wrenListRemoveAt(WrenVM* vm, ObjList* list, uint32_t index);
+Value pigeonListRemoveAt(PigeonVM* vm, ObjList* list, uint32_t index);
 
 // Searches for [value] in [list], returns the index or -1 if not found.
-int wrenListIndexOf(WrenVM* vm, ObjList* list, Value value);
+int pigeonListIndexOf(PigeonVM* vm, ObjList* list, Value value);
 
 // Creates a new empty map.
-ObjMap* wrenNewMap(WrenVM* vm);
+ObjMap* pigeonNewMap(PigeonVM* vm);
 
 // Validates that [arg] is a valid object for use as a map key. Returns true if
 // it is and returns false otherwise. Use validateKey usually, for a runtime error.
 // This separation exists to aid the API in surfacing errors to the developer as well.
-static inline bool wrenMapIsValidKey(Value arg);
+static inline bool pigeonMapIsValidKey(Value arg);
 
 // Looks up [key] in [map]. If found, returns the value. Otherwise, returns
 // `UNDEFINED_VAL`.
-Value wrenMapGet(WrenVM* vm, ObjMap* map, Value key);
+Value pigeonMapGet(PigeonVM* vm, ObjMap* map, Value key);
 
 // Associates [key] with [value] in [map].
-void wrenMapSet(WrenVM* vm, ObjMap* map, Value key, Value value);
+void pigeonMapSet(PigeonVM* vm, ObjMap* map, Value key, Value value);
 
-void wrenMapClear(WrenVM* vm, ObjMap* map);
+void pigeonMapClear(PigeonVM* vm, ObjMap* map);
 
 // Removes [key] from [map], if present. Returns the value for the key if found
 // or `NULL_VAL` otherwise.
-Value wrenMapRemoveKey(WrenVM* vm, ObjMap* map, Value key);
+Value pigeonMapRemoveKey(PigeonVM* vm, ObjMap* map, Value key);
 
 // Creates a new module.
-ObjModule* wrenNewModule(WrenVM* vm, ObjString* name);
+ObjModule* pigeonNewModule(PigeonVM* vm, ObjString* name);
 
 // Creates a new range from [from] to [to].
-Value wrenNewRange(WrenVM* vm, double from, double to, bool isInclusive);
+Value pigeonNewRange(PigeonVM* vm, double from, double to, bool isInclusive);
 
 // Creates a new string object and copies [text] into it.
 //
 // [text] must be non-NULL.
-Value wrenNewString(WrenVM* vm, const char* text);
+Value pigeonNewString(PigeonVM* vm, const char* text);
 
 // Creates a new string object of [length] and copies [text] into it.
 //
 // [text] may be NULL if [length] is zero.
-Value wrenNewStringLength(WrenVM* vm, const char* text, size_t length);
+Value pigeonNewStringLength(PigeonVM* vm, const char* text, size_t length);
 
 // Creates a new string object by taking a range of characters from [source].
 // The range starts at [start], contains [count] bytes, and increments by
 // [step].
-Value wrenNewStringFromRange(WrenVM* vm, ObjString* source, int start,
+Value pigeonNewStringFromRange(PigeonVM* vm, ObjString* source, int start,
                              uint32_t count, int step);
 
 // Produces a string representation of [value].
-Value wrenNumToString(WrenVM* vm, double value);
+Value pigeonNumToString(PigeonVM* vm, double value);
 
 // Creates a new formatted string from [format] and any additional arguments
 // used in the format string.
@@ -756,68 +756,68 @@ Value wrenNumToString(WrenVM* vm, double value);
 //
 // $ - A C string.
 // @ - A Wren string object.
-Value wrenStringFormat(WrenVM* vm, const char* format, ...);
+Value pigeonStringFormat(PigeonVM* vm, const char* format, ...);
 
 // Creates a new string containing the UTF-8 encoding of [value].
-Value wrenStringFromCodePoint(WrenVM* vm, int value);
+Value pigeonStringFromCodePoint(PigeonVM* vm, int value);
 
 // Creates a new string from the integer representation of a byte
-Value wrenStringFromByte(WrenVM* vm, uint8_t value);
+Value pigeonStringFromByte(PigeonVM* vm, uint8_t value);
 
 // Creates a new string containing the code point in [string] starting at byte
 // [index]. If [index] points into the middle of a UTF-8 sequence, returns an
 // empty string.
-Value wrenStringCodePointAt(WrenVM* vm, ObjString* string, uint32_t index);
+Value pigeonStringCodePointAt(PigeonVM* vm, ObjString* string, uint32_t index);
 
 // Search for the first occurence of [needle] within [haystack] and returns its
 // zero-based offset. Returns `UINT32_MAX` if [haystack] does not contain
 // [needle].
-uint32_t wrenStringFind(ObjString* haystack, ObjString* needle,
+uint32_t pigeonStringFind(ObjString* haystack, ObjString* needle,
                         uint32_t startIndex);
 
 // Returns true if [a] and [b] represent the same string.
-static inline bool wrenStringEqualsCString(const ObjString* a,
+static inline bool pigeonStringEqualsCString(const ObjString* a,
                                            const char* b, size_t length)
 {
   return a->length == length && memcmp(a->value, b, length) == 0;
 }
 
 // Creates a new open upvalue pointing to [value] on the stack.
-ObjUpvalue* wrenNewUpvalue(WrenVM* vm, Value* value);
+ObjUpvalue* pigeonNewUpvalue(PigeonVM* vm, Value* value);
 
 // Mark [obj] as reachable and still in use. This should only be called
 // during the sweep phase of a garbage collection.
-void wrenGrayObj(WrenVM* vm, Obj* obj);
+void pigeonGrayObj(PigeonVM* vm, Obj* obj);
 
 // Mark [value] as reachable and still in use. This should only be called
 // during the sweep phase of a garbage collection.
-void wrenGrayValue(WrenVM* vm, Value value);
+void pigeonGrayValue(PigeonVM* vm, Value value);
 
 // Mark the values in [buffer] as reachable and still in use. This should only
 // be called during the sweep phase of a garbage collection.
-void wrenGrayBuffer(WrenVM* vm, ValueBuffer* buffer);
+void pigeonGrayBuffer(PigeonVM* vm, ValueBuffer* buffer);
 
 // Processes every object in the gray stack until all reachable objects have
 // been marked. After that, all objects are either white (freeable) or black
 // (in use and fully traversed).
-void wrenBlackenObjects(WrenVM* vm);
+void pigeonBlackenObjects(PigeonVM* vm);
 
 // Releases all memory owned by [obj], including [obj] itself.
-void wrenFreeObj(WrenVM* vm, Obj* obj);
+void pigeonFreeObj(PigeonVM* vm, Obj* obj);
 
 // Returns the class of [value].
 //
-// Unlike wrenGetClassInline in wren_vm.h, this is not inlined. Inlining helps
+// Unlike pigeonGetClassInline in wren_vm.h, this is not inlined. Inlining helps
 // performance (significantly) in some cases, but degrades it in others. The
 // ones used by the implementation were chosen to give the best results in the
 // benchmarks.
-ObjClass* wrenGetClass(WrenVM* vm, Value value);
+ObjClass* pigeonGetClass(PigeonVM* vm, Value value);
 
 // Returns true if [a] and [b] are strictly the same value. This is identity
 // for object values, and value equality for unboxed values.
-static inline bool wrenValuesSame(Value a, Value b)
+static inline bool pigeonValuesSame(Value a, Value b)
 {
-#if WREN_NAN_TAGGING
+#if PIGEON_NAN_TAGGING
   // Value types have unique bit representations and we compare object types
   // by identity (i.e. pointer), so all we need to do is compare the bits.
   return a == b;
@@ -831,13 +831,13 @@ static inline bool wrenValuesSame(Value a, Value b)
 // Returns true if [a] and [b] are equivalent. Immutable values (null, bools,
 // numbers, ranges, and strings) are equal if they have the same data. All
 // other values are equal if they are identical objects.
-bool wrenValuesEqual(Value a, Value b);
+bool pigeonValuesEqual(Value a, Value b);
 
 // Returns true if [value] is a bool. Do not call this directly, instead use
 // [IS_BOOL].
-static inline bool wrenIsBool(Value value)
+static inline bool pigeonIsBool(Value value)
 {
-#if WREN_NAN_TAGGING
+#if PIGEON_NAN_TAGGING
   return value == TRUE_VAL || value == FALSE_VAL;
 #else
   return value.type == VAL_FALSE || value.type == VAL_TRUE;
@@ -846,15 +846,15 @@ static inline bool wrenIsBool(Value value)
 
 // Returns true if [value] is an object of type [type]. Do not call this
 // directly, instead use the [IS___] macro for the type in question.
-static inline bool wrenIsObjType(Value value, ObjType type)
+static inline bool pigeonIsObjType(Value value, ObjType type)
 {
   return IS_OBJ(value) && AS_OBJ(value)->type == type;
 }
 
 // Converts the raw object pointer [obj] to a [Value].
-static inline Value wrenObjectToValue(Obj* obj)
+static inline Value pigeonObjectToValue(Obj* obj)
 {
-#if WREN_NAN_TAGGING
+#if PIGEON_NAN_TAGGING
   // The triple casting is necessary here to satisfy some compilers:
   // 1. (uintptr_t) Convert the pointer to a number of the right size.
   // 2. (uint64_t)  Pad it up to 64 bits in 32-bit builds.
@@ -870,20 +870,20 @@ static inline Value wrenObjectToValue(Obj* obj)
 }
 
 // Interprets [value] as a [double].
-static inline double wrenValueToNum(Value value)
+static inline double pigeonValueToNum(Value value)
 {
-#if WREN_NAN_TAGGING
-  return wrenDoubleFromBits(value);
+#if PIGEON_NAN_TAGGING
+  return pigeonDoubleFromBits(value);
 #else
   return value.as.num;
 #endif
 }
 
 // Converts [num] to a [Value].
-static inline Value wrenNumToValue(double num)
+static inline Value pigeonNumToValue(double num)
 {
-#if WREN_NAN_TAGGING
-  return wrenDoubleToBits(num);
+#if PIGEON_NAN_TAGGING
+  return pigeonDoubleToBits(num);
 #else
   Value value;
   value.type = VAL_NUM;
@@ -892,7 +892,7 @@ static inline Value wrenNumToValue(double num)
 #endif
 }
 
-static inline bool wrenMapIsValidKey(Value arg)
+static inline bool pigeonMapIsValidKey(Value arg)
 {
   return IS_BOOL(arg)
       || IS_CLASS(arg)

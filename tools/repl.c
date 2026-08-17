@@ -5,15 +5,15 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include "wren.h"
+#include "pigeon.h"
 
 // Forward declarations for stdlib functions (avoids pulling in internal VM headers)
-const char*  wrenStdlibLoadModule(const char* name);
-const char*  wrenStdlibGetDefaultExport(const char* name);
-const char** wrenStdlibGetExports(const char* name);
-WrenForeignMethodFn wrenStdlibBindForeign(WrenVM* vm, const char* module,
+const char*  pigeonStdlibLoadModule(const char* name);
+const char*  pigeonStdlibGetDefaultExport(const char* name);
+const char** pigeonStdlibGetExports(const char* name);
+PigeonForeignMethodFn pigeonStdlibBindForeign(PigeonVM* vm, const char* module,
     const char* className, bool isStatic, const char* signature);
-WrenForeignClassMethods wrenStdlibBindForeignClass(WrenVM* vm,
+PigeonForeignClassMethods pigeonStdlibBindForeignClass(PigeonVM* vm,
     const char* module, const char* className);
 
 #define MAX_LINE_LENGTH 4096
@@ -36,26 +36,26 @@ static char input_buffer[MAX_LINE_LENGTH * 10];
 static bool in_multiline = false;
 
 
-static void writeFn(WrenVM* vm, const char* text)
+static void writeFn(PigeonVM* vm, const char* text)
 {
   printf("%s%s%s", COLOR_OUTPUT, text, COLOR_RESET);
 }
 
-static void errorFn(WrenVM* vm, WrenErrorType errorType,
+static void errorFn(PigeonVM* vm, PigeonErrorType errorType,
                     const char* module, const int line,
                     const char* msg)
 {
   switch (errorType)
   {
-    case WREN_ERROR_COMPILE:
+    case PIGEON_ERROR_COMPILE:
       fprintf(stderr, "%s[%s line %d] Error: %s%s\n",
               COLOR_ERROR, module, line, msg, COLOR_RESET);
       break;
-    case WREN_ERROR_STACK_TRACE:
+    case PIGEON_ERROR_STACK_TRACE:
       fprintf(stderr, "%s[%s line %d] in %s%s\n",
               COLOR_ERROR, module, line, msg, COLOR_RESET);
       break;
-    case WREN_ERROR_RUNTIME:
+    case PIGEON_ERROR_RUNTIME:
       fprintf(stderr, "%s[Runtime Error] %s%s\n",
               COLOR_ERROR, msg, COLOR_RESET);
       break;
@@ -195,26 +195,26 @@ static char* readLine(const char* prompt)
   return line;
 }
 
-static const char* replResolveModule(WrenVM* vm, const char* importer,
+static const char* replResolveModule(PigeonVM* vm, const char* importer,
                                      const char* module)
 {
   (void)vm; (void)importer;
   return module;
 }
 
-static void replLoadModuleComplete(WrenVM* vm, const char* module,
-                                   WrenLoadModuleResult result)
+static void replLoadModuleComplete(PigeonVM* vm, const char* module,
+                                   PigeonLoadModuleResult result)
 {
   (void)vm; (void)module;
   if (result.source) free((void*)result.source);
 }
 
-static WrenLoadModuleResult replLoadModule(WrenVM* vm, const char* module)
+static PigeonLoadModuleResult replLoadModule(PigeonVM* vm, const char* module)
 {
-  WrenLoadModuleResult result = {0};
+  PigeonLoadModuleResult result = {0};
 
   // Try stdlib first.
-  const char* src = wrenStdlibLoadModule(module);
+  const char* src = pigeonStdlibLoadModule(module);
   if (src != NULL) {
     result.source = src;
     return result;
@@ -239,34 +239,34 @@ static WrenLoadModuleResult replLoadModule(WrenVM* vm, const char* module)
   return result;
 }
 
-static WrenForeignMethodFn replBindForeignMethod(WrenVM* vm,
+static PigeonForeignMethodFn replBindForeignMethod(PigeonVM* vm,
     const char* module, const char* className, bool isStatic,
     const char* signature)
 {
-  return wrenStdlibBindForeign(vm, module, className, isStatic, signature);
+  return pigeonStdlibBindForeign(vm, module, className, isStatic, signature);
 }
 
-static WrenForeignClassMethods replBindForeignClass(WrenVM* vm,
+static PigeonForeignClassMethods replBindForeignClass(PigeonVM* vm,
     const char* module, const char* className)
 {
-  return wrenStdlibBindForeignClass(vm, module, className);
+  return pigeonStdlibBindForeignClass(vm, module, className);
 }
 
-static const char* replResolveDefaultExport(WrenVM* vm, const char* name)
+static const char* replResolveDefaultExport(PigeonVM* vm, const char* name)
 {
   (void)vm;
-  return wrenStdlibGetDefaultExport(name);
+  return pigeonStdlibGetDefaultExport(name);
 }
 
-static const char** replResolveExports(WrenVM* vm, const char* name)
+static const char** replResolveExports(PigeonVM* vm, const char* name)
 {
   (void)vm;
-  return wrenStdlibGetExports(name);
+  return pigeonStdlibGetExports(name);
 }
 
-static void replInitConfig(WrenConfiguration* config)
+static void replInitConfig(PigeonConfiguration* config)
 {
-  wrenInitConfiguration(config);
+  pigeonInitConfiguration(config);
   config->writeFn                = writeFn;
   config->errorFn                = errorFn;
   config->resolveModuleFn        = replResolveModule;
@@ -280,7 +280,7 @@ static void replInitConfig(WrenConfiguration* config)
 // Each command invocation gets a unique module name so imports/vars don't collide.
 static int g_cmdSeq = 0;
 
-static void cmdVars(WrenVM* vm)
+static void cmdVars(PigeonVM* vm)
 {
   char mod[64];
   snprintf(mod, sizeof(mod), "repl.cmd%d", g_cmdSeq++);
@@ -295,7 +295,7 @@ static void cmdVars(WrenVM* vm)
     "    System.print(\"\x1b[90m%(name)\x1b[0m\")\n"
     "  }\n"
     "}\n";
-  wrenInterpret(vm, mod, src);
+  pigeonInterpret(vm, mod, src);
 }
 
 // .inspect takes a Wren identifier (optionally dotted). Reject anything
@@ -311,7 +311,7 @@ static bool isSafeInspectName(const char* name)
   return true;
 }
 
-static void cmdInspect(WrenVM* vm, const char* name)
+static void cmdInspect(PigeonVM* vm, const char* name)
 {
   if (!isSafeInspectName(name))
   {
@@ -355,10 +355,10 @@ static void cmdInspect(WrenVM* vm, const char* name)
     "}\n",
     name, name);
 
-  wrenInterpret(vm, "repl", src);
+  pigeonInterpret(vm, "repl", src);
 }
 
-static bool handleCommand(const char* line, WrenVM** vm)
+static bool handleCommand(const char* line, PigeonVM** vm)
 {
   if (strcmp(line, ".help") == 0 || strcmp(line, ".h") == 0)
   {
@@ -394,10 +394,10 @@ static bool handleCommand(const char* line, WrenVM** vm)
   else if (strcmp(line, ".reset") == 0)
   {
     printf("%sResetting VM...%s\n", COLOR_INFO, COLOR_RESET);
-    wrenFreeVM(*vm);
-    WrenConfiguration config;
+    pigeonFreeVM(*vm);
+    PigeonConfiguration config;
     replInitConfig(&config);
-    *vm = wrenNewVM(&config);
+    *vm = pigeonNewVM(&config);
     printf("%sVM reset complete%s\n", COLOR_INFO, COLOR_RESET);
     return true;
   }
@@ -405,7 +405,7 @@ static bool handleCommand(const char* line, WrenVM** vm)
   return true;
 }
 
-static void executeCode(WrenVM* vm, const char* code)
+static void executeCode(PigeonVM* vm, const char* code)
 {
 
   // Check if it's a simple expression (no semicolon, no keywords that make it a statement)
@@ -439,21 +439,21 @@ static void executeCode(WrenVM* vm, const char* code)
     char wrapped[MAX_LINE_LENGTH * 10 + 100];
     snprintf(wrapped, sizeof(wrapped), "System.print(%s)", code);
 
-    WrenInterpretResult result = wrenInterpret(vm, "repl", wrapped);
+    PigeonInterpretResult result = pigeonInterpret(vm, "repl", wrapped);
 
     // If that failed, just execute it normally
-    if (result == WREN_RESULT_COMPILE_ERROR)
+    if (result == PIGEON_RESULT_COMPILE_ERROR)
     {
-      wrenInterpret(vm, "repl", code);
+      pigeonInterpret(vm, "repl", code);
     }
   }
   else
   {
-    wrenInterpret(vm, "repl", code);
+    pigeonInterpret(vm, "repl", code);
   }
 }
 
-static int runFile(WrenVM* vm, const char* path)
+static int runFile(PigeonVM* vm, const char* path)
 {
   FILE* f = fopen(path, "r");
   if (!f)
@@ -487,11 +487,11 @@ static int runFile(WrenVM* vm, const char* path)
   code[nread] = '\0';
   fclose(f);
 
-  WrenInterpretResult result = wrenInterpret(vm, path, code);
+  PigeonInterpretResult result = pigeonInterpret(vm, path, code);
   free(code);
 
-  if (result == WREN_RESULT_COMPILE_ERROR) return 65; /* EX_DATAERR */
-  if (result == WREN_RESULT_RUNTIME_ERROR) return 70; /* EX_SOFTWARE */
+  if (result == PIGEON_RESULT_COMPILE_ERROR) return 65; /* EX_DATAERR */
+  if (result == PIGEON_RESULT_RUNTIME_ERROR) return 70; /* EX_SOFTWARE */
   return 0;
 }
 
@@ -514,15 +514,15 @@ int main(int argc, char* argv[])
     return 0;
   }
 
-  WrenConfiguration config;
+  PigeonConfiguration config;
   replInitConfig(&config);
-  WrenVM* vm = wrenNewVM(&config);
+  PigeonVM* vm = pigeonNewVM(&config);
 
   // File argument: run and exit (the CLI, not a REPL session).
   if (argc > 1)
   {
     int status = runFile(vm, argv[1]);
-    wrenFreeVM(vm);
+    pigeonFreeVM(vm);
     return status;
   }
 
@@ -590,6 +590,6 @@ int main(int argc, char* argv[])
     input_buffer[0] = '\0';
   }
 
-  wrenFreeVM(vm);
+  pigeonFreeVM(vm);
   return 0;
 }

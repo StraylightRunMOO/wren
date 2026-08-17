@@ -8,7 +8,7 @@
 #include "wren_compiler.h"
 #include "wren_vm.h"
 
-#if WREN_DEBUG_DUMP_COMPILED_CODE
+#if PIGEON_DEBUG_DUMP_COMPILED_CODE
   #include "wren_debug.h"
 #endif
 
@@ -161,7 +161,7 @@ typedef struct
 
 typedef struct
 {
-  WrenVM* vm;
+  PigeonVM* vm;
 
   // The module being parsed.
   ObjModule* module;
@@ -427,7 +427,7 @@ static void printError(Parser* parser, int line, const char* label,
   parser->hasError = true;
   if (!parser->printErrors) return;
 
-  // Only report errors if there is a WrenErrorFn to handle them.
+  // Only report errors if there is a PigeonErrorFn to handle them.
   if (parser->vm->config.errorFn == NULL) return;
 
   // Format the label and message.
@@ -439,7 +439,7 @@ static void printError(Parser* parser, int line, const char* label,
   ObjString* module = parser->module->name;
   const char* module_name = module ? module->value : "<unknown>";
 
-  parser->vm->config.errorFn(parser->vm, WREN_ERROR_COMPILE,
+  parser->vm->config.errorFn(parser->vm, PIGEON_ERROR_COMPILE,
                              module_name, line, message);
 }
 
@@ -504,23 +504,23 @@ static int addConstant(Compiler* compiler, Value constant)
   // See if we already have a constant for the value. If so, reuse it.
   if (compiler->constants != NULL)
   {
-    Value existing = wrenMapGet(compiler->parser->vm, compiler->constants, constant);
+    Value existing = pigeonMapGet(compiler->parser->vm, compiler->constants, constant);
     if (IS_NUM(existing)) return (int)AS_NUM(existing);
   }
   
   // It's a new constant.
   if (compiler->fn->constants.count < MAX_CONSTANTS)
   {
-    if (IS_OBJ(constant)) wrenPushRoot(compiler->parser->vm, AS_OBJ(constant));
-    wrenValueBufferWrite(compiler->parser->vm, &compiler->fn->constants,
+    if (IS_OBJ(constant)) pigeonPushRoot(compiler->parser->vm, AS_OBJ(constant));
+    pigeonValueBufferWrite(compiler->parser->vm, &compiler->fn->constants,
                          constant);
-    if (IS_OBJ(constant)) wrenPopRoot(compiler->parser->vm);
+    if (IS_OBJ(constant)) pigeonPopRoot(compiler->parser->vm);
     
     if (compiler->constants == NULL)
     {
-      compiler->constants = wrenNewMap(compiler->parser->vm);
+      compiler->constants = pigeonNewMap(compiler->parser->vm);
     }
-    wrenMapSet(compiler->parser->vm, compiler->constants, constant,
+    pigeonMapSet(compiler->parser->vm, compiler->constants, constant,
                NUM_VAL(compiler->fn->constants.count - 1));
   }
   else
@@ -586,8 +586,8 @@ static void initCompiler(Compiler* compiler, Parser* parser, Compiler* parent,
   }
   
   compiler->numAttributes = 0;
-  compiler->attributes = wrenNewMap(parser->vm);
-  compiler->fn = wrenNewFunction(parser->vm, parser->module,
+  compiler->attributes = pigeonNewMap(parser->vm);
+  compiler->fn = pigeonNewFunction(parser->vm, parser->module,
                                  compiler->numLocals);
 }
 
@@ -849,13 +849,13 @@ static void readNumber(Parser* parser)
 static void readName(Parser* parser, TokenType type, char firstChar)
 {
   ByteBuffer string;
-  wrenByteBufferInit(&string);
-  wrenByteBufferWrite(parser->vm, &string, firstChar);
+  pigeonByteBufferInit(&string);
+  pigeonByteBufferWrite(parser->vm, &string, firstChar);
 
   while (isName(peekChar(parser)) || isDigit(peekChar(parser)))
   {
     char c = nextChar(parser);
-    wrenByteBufferWrite(parser->vm, &string, c);
+    pigeonByteBufferWrite(parser->vm, &string, c);
   }
 
   // Update the type if it's a keyword.
@@ -870,10 +870,10 @@ static void readName(Parser* parser, TokenType type, char firstChar)
     }
   }
   
-  parser->next.value = wrenNewStringLength(parser->vm,
+  parser->next.value = pigeonNewStringLength(parser->vm,
                                             (char*)string.data, string.count);
 
-  wrenByteBufferClear(parser->vm, &string);
+  pigeonByteBufferClear(parser->vm, &string);
   makeToken(parser, type);
 }
 
@@ -912,18 +912,18 @@ static void readUnicodeEscape(Parser* parser, ByteBuffer* string, int length)
   int value = readHexEscape(parser, length, "Unicode");
 
   // Grow the buffer enough for the encoded result.
-  int numBytes = wrenUtf8EncodeNumBytes(value);
+  int numBytes = pigeonUtf8EncodeNumBytes(value);
   if (numBytes != 0)
   {
-    wrenByteBufferFill(parser->vm, string, 0, numBytes);
-    wrenUtf8Encode(value, string->data + string->count - numBytes);
+    pigeonByteBufferFill(parser->vm, string, 0, numBytes);
+    pigeonUtf8Encode(value, string->data + string->count - numBytes);
   }
 }
 
 static void readRawString(Parser* parser)
 {
   ByteBuffer string;
-  wrenByteBufferInit(&string);
+  pigeonByteBufferInit(&string);
   TokenType type = TOKEN_STRING;
 
   //consume the second and third "
@@ -975,7 +975,7 @@ static void readRawString(Parser* parser)
       break;
     }
  
-    wrenByteBufferWrite(parser->vm, &string, c);
+    pigeonByteBufferWrite(parser->vm, &string, c);
   }
 
   //consume the second and third "
@@ -990,10 +990,10 @@ static void readRawString(Parser* parser)
 
   count -= (offset > count) ? count : offset;
 
-  parser->next.value = wrenNewStringLength(parser->vm, 
+  parser->next.value = pigeonNewStringLength(parser->vm, 
                          ((char*)string.data) + offset, count);
   
-  wrenByteBufferClear(parser->vm, &string);
+  pigeonByteBufferClear(parser->vm, &string);
   makeToken(parser, type);
 }
 
@@ -1002,7 +1002,7 @@ static void readString(Parser* parser)
 {
   ByteBuffer string;
   TokenType type = TOKEN_STRING;
-  wrenByteBufferInit(&string);
+  pigeonByteBufferInit(&string);
   
   for (;;)
   {
@@ -1040,22 +1040,22 @@ static void readString(Parser* parser)
     {
       switch (nextChar(parser))
       {
-        case '"':  wrenByteBufferWrite(parser->vm, &string, '"'); break;
-        case '\\': wrenByteBufferWrite(parser->vm, &string, '\\'); break;
-        case '%':  wrenByteBufferWrite(parser->vm, &string, '%'); break;
-        case '0':  wrenByteBufferWrite(parser->vm, &string, '\0'); break;
-        case 'a':  wrenByteBufferWrite(parser->vm, &string, '\a'); break;
-        case 'b':  wrenByteBufferWrite(parser->vm, &string, '\b'); break;
-        case 'e':  wrenByteBufferWrite(parser->vm, &string, '\33'); break;
-        case 'f':  wrenByteBufferWrite(parser->vm, &string, '\f'); break;
-        case 'n':  wrenByteBufferWrite(parser->vm, &string, '\n'); break;
-        case 'r':  wrenByteBufferWrite(parser->vm, &string, '\r'); break;
-        case 't':  wrenByteBufferWrite(parser->vm, &string, '\t'); break;
+        case '"':  pigeonByteBufferWrite(parser->vm, &string, '"'); break;
+        case '\\': pigeonByteBufferWrite(parser->vm, &string, '\\'); break;
+        case '%':  pigeonByteBufferWrite(parser->vm, &string, '%'); break;
+        case '0':  pigeonByteBufferWrite(parser->vm, &string, '\0'); break;
+        case 'a':  pigeonByteBufferWrite(parser->vm, &string, '\a'); break;
+        case 'b':  pigeonByteBufferWrite(parser->vm, &string, '\b'); break;
+        case 'e':  pigeonByteBufferWrite(parser->vm, &string, '\33'); break;
+        case 'f':  pigeonByteBufferWrite(parser->vm, &string, '\f'); break;
+        case 'n':  pigeonByteBufferWrite(parser->vm, &string, '\n'); break;
+        case 'r':  pigeonByteBufferWrite(parser->vm, &string, '\r'); break;
+        case 't':  pigeonByteBufferWrite(parser->vm, &string, '\t'); break;
         case 'u':  readUnicodeEscape(parser, &string, 4); break;
         case 'U':  readUnicodeEscape(parser, &string, 8); break;
-        case 'v':  wrenByteBufferWrite(parser->vm, &string, '\v'); break;
+        case 'v':  pigeonByteBufferWrite(parser->vm, &string, '\v'); break;
         case 'x':
-          wrenByteBufferWrite(parser->vm, &string,
+          pigeonByteBufferWrite(parser->vm, &string,
                               (uint8_t)readHexEscape(parser, 2, "byte"));
           break;
 
@@ -1067,14 +1067,14 @@ static void readString(Parser* parser)
     }
     else
     {
-      wrenByteBufferWrite(parser->vm, &string, c);
+      pigeonByteBufferWrite(parser->vm, &string, c);
     }
   }
 
-  parser->next.value = wrenNewStringLength(parser->vm,
+  parser->next.value = pigeonNewStringLength(parser->vm,
                                               (char*)string.data, string.count);
   
-  wrenByteBufferClear(parser->vm, &string);
+  pigeonByteBufferClear(parser->vm, &string);
   makeToken(parser, type);
 }
 
@@ -1351,10 +1351,10 @@ static void allowLineBeforeDot(Compiler* compiler) {
 // Emits one single-byte argument. Returns its index.
 static int emitByte(Compiler* compiler, int byte)
 {
-  wrenByteBufferWrite(compiler->parser->vm, &compiler->fn->code, (uint8_t)byte);
+  pigeonByteBufferWrite(compiler->parser->vm, &compiler->fn->code, (uint8_t)byte);
   
   // Assume the instruction is associated with the most recently consumed token.
-  wrenIntBufferWrite(compiler->parser->vm, &compiler->fn->debug->sourceLines,
+  pigeonIntBufferWrite(compiler->parser->vm, &compiler->fn->debug->sourceLines,
                      compiler->parser->previous.line);
   
   return compiler->fn->code.count - 1;
@@ -1445,7 +1445,7 @@ static int declareVariable(Compiler* compiler, Token* token)
   if (compiler->scopeDepth == -1)
   {
     int line = -1;
-    int symbol = wrenDefineVariable(compiler->parser->vm,
+    int symbol = pigeonDefineVariable(compiler->parser->vm,
                                     compiler->parser->module,
                                     token->start, token->length,
                                     NULL_VAL, &line);
@@ -1682,7 +1682,7 @@ static Variable resolveName(Compiler* compiler, const char* name, int length)
   if (variable.index != -1) return variable;
 
   variable.scope = SCOPE_MODULE;
-  variable.index = wrenSymbolTableFind(&compiler->parser->module->variableNames,
+  variable.index = pigeonSymbolTableFind(&compiler->parser->module->variableNames,
                                        name, length);
   return variable;
 }
@@ -1718,7 +1718,7 @@ static ObjFn* endCompiler(Compiler* compiler,
   // One IC slot per bytecode byte. Only CALL sites use them; empty slots
   // stay klass == NULL.
   {
-    WrenVM* vm = compiler->parser->vm;
+    PigeonVM* vm = compiler->parser->vm;
     int count = compiler->fn->code.count;
     if (count > 0)
     {
@@ -1728,7 +1728,7 @@ static ObjFn* endCompiler(Compiler* compiler,
     }
   }
 
-  wrenFunctionBindName(compiler->parser->vm, compiler->fn,
+  pigeonFunctionBindName(compiler->parser->vm, compiler->fn,
                        debugName, debugNameLength);
   
   // In the function that contains this one, load the resulting function object.
@@ -1755,8 +1755,8 @@ static ObjFn* endCompiler(Compiler* compiler,
   // Pop this compiler off the stack.
   compiler->parser->vm->compiler = compiler->parent;
   
-  #if WREN_DEBUG_DUMP_COMPILED_CODE
-    wrenDumpCode(compiler->parser->vm, compiler->fn);
+  #if PIGEON_DEBUG_DUMP_COMPILED_CODE
+    pigeonDumpCode(compiler->parser->vm, compiler->fn);
   #endif
 
   return compiler->fn;
@@ -1909,7 +1909,7 @@ static void finishParameterList(Compiler* compiler, Signature* signature)
 // Gets the symbol for a method [name] with [length].
 static int methodSymbol(Compiler* compiler, const char* name, int length)
 {
-  int symbol = wrenSymbolTableEnsure(compiler->parser->vm,
+  int symbol = pigeonSymbolTableEnsure(compiler->parser->vm,
       &compiler->parser->vm->methodNames, name, length);
 
   if (symbol > MAX_METHODS) {
@@ -2063,7 +2063,7 @@ static void callMethod(Compiler* compiler, int numArgs, const char* name,
 }
 
 // Parses a function expression after the "fn" keyword.
-static void fnExpression(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+static void fnExpression(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   Compiler fnCompiler;
   initCompiler(&fnCompiler, compiler->parser, compiler, false);
@@ -2235,20 +2235,20 @@ static void loadThis(Compiler* compiler)
 // Pushes the value for a module-level variable implicitly imported from core.
 static void loadCoreVariable(Compiler* compiler, const char* name)
 {
-  int symbol = wrenSymbolTableFind(&compiler->parser->module->variableNames,
+  int symbol = pigeonSymbolTableFind(&compiler->parser->module->variableNames,
                                    name, strlen(name));
   ASSERT(symbol != -1, "Should have already defined core name.");
   emitShortArg(compiler, CODE_LOAD_MODULE_VAR, symbol);
 }
 
 // A parenthesized expression.
-static void grouping(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+static void grouping(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   expression(compiler);
   consume(compiler, TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-static void call(Compiler* compiler, bool WREN_MAYBE_UNUSED allowAssignment)
+static void call(Compiler* compiler, bool PIGEON_MAYBE_UNUSED allowAssignment)
 {
   // An infix parenthesized call is syntax sugar for invoking the "call" method
   // on the left-hand side.
@@ -2269,7 +2269,7 @@ static void call(Compiler* compiler, bool WREN_MAYBE_UNUSED allowAssignment)
 }
 
 // A list literal.
-static void list(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+static void list(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   // Instantiate a new list.
   loadCoreVariable(compiler, "List");
@@ -2294,7 +2294,7 @@ static void list(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 }
 
 // A map literal.
-static void map(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+static void map(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   // Instantiate a new map.
   loadCoreVariable(compiler, "Map");
@@ -2325,7 +2325,7 @@ static void map(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 }
 
 // Unary operators like `-foo`.
-static void unaryOp(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+static void unaryOp(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   GrammarRule* rule = getRule(compiler->parser->previous.type);
 
@@ -2338,7 +2338,7 @@ static void unaryOp(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
   callMethod(compiler, 0, rule->name, 1);
 }
 
-static void boolean(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+static void boolean(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   emitOp(compiler,
       compiler->parser->previous.type == TOKEN_FALSE ? CODE_FALSE : CODE_TRUE);
@@ -2388,7 +2388,7 @@ static void field(Compiler* compiler, bool canAssign)
   else
   {
     // Look up the field, or implicitly define it.
-    field = wrenSymbolTableEnsure(compiler->parser->vm, &enclosingClass->fields,
+    field = pigeonSymbolTableEnsure(compiler->parser->vm, &enclosingClass->fields,
         compiler->parser->previous.start,
         compiler->parser->previous.length);
 
@@ -2509,7 +2509,7 @@ static void name(Compiler* compiler, bool canAssign)
 
   // If we're inside a method and the name is lowercase, treat it as a method
   // on this.
-  if (wrenIsLocalName(token->start) && getEnclosingClass(compiler) != NULL)
+  if (pigeonIsLocalName(token->start) && getEnclosingClass(compiler) != NULL)
   {
     loadThis(compiler);
     namedCall(compiler, canAssign, CODE_CALL_0);
@@ -2518,13 +2518,13 @@ static void name(Compiler* compiler, bool canAssign)
 
   // Otherwise, look for a module-level variable with the name.
   variable.scope = SCOPE_MODULE;
-  variable.index = wrenSymbolTableFind(&compiler->parser->module->variableNames,
+  variable.index = pigeonSymbolTableFind(&compiler->parser->module->variableNames,
                                        token->start, token->length);
   if (variable.index == -1)
   {
     // Implicitly define a module-level variable in
     // the hopes that we get a real definition later.
-    variable.index = wrenDeclareVariable(compiler->parser->vm,
+    variable.index = pigeonDeclareVariable(compiler->parser->vm,
                                          compiler->parser->module,
                                          token->start, token->length,
                                          token->line);
@@ -2538,19 +2538,19 @@ static void name(Compiler* compiler, bool canAssign)
   bareName(compiler, canAssign, variable);
 }
 
-static void null(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+static void null(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   emitOp(compiler, CODE_NULL);
 }
 
 // A number or string literal.
-static void literal(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+static void literal(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   emitConstant(compiler, compiler->parser->previous.value);
 }
 
 // Compiles an Object Number like #123.
-static void objectNumber(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+static void objectNumber(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   // Check if callback is configured
   if (compiler->parser->vm->config.objectNumberFn == NULL)
@@ -2563,7 +2563,7 @@ static void objectNumber(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
   int64_t intValue = (int64_t)AS_NUM(compiler->parser->previous.value);
 
   // Ensure there's a slot for the callback to use
-  wrenEnsureSlots(compiler->parser->vm, 1);
+  pigeonEnsureSlots(compiler->parser->vm, 1);
 
   // Call the user's callback - it will place the result in slot 0
   compiler->parser->vm->config.objectNumberFn(
@@ -2584,7 +2584,7 @@ static void objectNumber(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 // is compiled roughly like:
 //
 //     ["a ", b + c, " d"].join()
-static void stringInterpolation(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+static void stringInterpolation(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   // Instantiate a new list.
   loadCoreVariable(compiler, "List");
@@ -2643,7 +2643,7 @@ static void super_(Compiler* compiler, bool canAssign)
   }
 }
 
-static void this_(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+static void this_(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   if (getEnclosingClass(compiler) == NULL)
   {
@@ -2684,7 +2684,7 @@ static void dot(Compiler* compiler, bool canAssign)
   namedCall(compiler, canAssign, CODE_CALL_0);
 }
 
-static void and_(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+static void and_(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   ignoreNewlines(compiler);
 
@@ -2694,7 +2694,7 @@ static void and_(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
   patchJump(compiler, jump);
 }
 
-static void or_(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+static void or_(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   ignoreNewlines(compiler);
 
@@ -2704,7 +2704,7 @@ static void or_(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
   patchJump(compiler, jump);
 }
 
-static void conditional(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+static void conditional(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   // Ignore newline after '?'.
   ignoreNewlines(compiler);
@@ -2731,7 +2731,7 @@ static void conditional(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
   patchJump(compiler, elseJump);
 }
 
-void infixOp(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
+void infixOp(Compiler* compiler, bool PIGEON_MAYBE_UNUSED canAssign)
 {
   GrammarRule* rule = getRule(compiler->parser->previous.type);
   TokenType op = compiler->parser->previous.type;
@@ -2776,7 +2776,7 @@ void infixSignature(Compiler* compiler, Signature* signature)
 }
 
 // Compiles a method signature for an unary operator (i.e. "!").
-void unarySignature(Compiler* WREN_MAYBE_UNUSED compiler, Signature* signature)
+void unarySignature(Compiler* PIGEON_MAYBE_UNUSED compiler, Signature* signature)
 {
   // Do nothing. The name is already complete.
   signature->type = SIG_GETTER;
@@ -3495,7 +3495,7 @@ static void defineMethod(Compiler* compiler, Variable classVariable,
 // Reports an error if a method with that signature is already declared.
 // Returns the symbol for the method.
 static int declareMethod(Compiler* compiler, Signature* signature,
-                         const char* name, int WREN_MAYBE_UNUSED length)
+                         const char* name, int PIGEON_MAYBE_UNUSED length)
 {
   int symbol = signatureSymbol(compiler, signature);
   
@@ -3514,7 +3514,7 @@ static int declareMethod(Compiler* compiler, Signature* signature,
     }
   }
   
-  wrenIntBufferWrite(compiler->parser->vm, methods, symbol);
+  pigeonIntBufferWrite(compiler->parser->vm, methods, symbol);
   return symbol;
 }
 
@@ -3655,7 +3655,7 @@ static bool method(Compiler* compiler, Variable classVariable)
   if (isForeign)
   {
     // Define a constant for the signature.
-    emitConstant(compiler, wrenNewStringLength(compiler->parser->vm,
+    emitConstant(compiler, pigeonNewStringLength(compiler->parser->vm,
                                                fullSignature, length));
 
     // We don't need the function we started compiling in the parameter list
@@ -3696,7 +3696,7 @@ static void classDefinition(Compiler* compiler, bool isForeign)
   classVariable.index = declareNamedVariable(compiler);
   
   // Create shared class name value
-  Value classNameString = wrenNewStringLength(compiler->parser->vm,
+  Value classNameString = pigeonNewStringLength(compiler->parser->vm,
       compiler->parser->previous.start, compiler->parser->previous.length);
   
   // Create class name string to track method duplicates
@@ -3743,7 +3743,7 @@ static void classDefinition(Compiler* compiler, bool isForeign)
   // Allocate attribute maps if necessary. 
   // A method will allocate the methods one if needed
   classInfo.classAttributes = compiler->attributes->count > 0 
-        ? wrenNewMap(compiler->parser->vm) 
+        ? pigeonNewMap(compiler->parser->vm) 
         : NULL;
   classInfo.methodAttributes = NULL;
   // Copy any existing attributes into the class
@@ -3751,13 +3751,13 @@ static void classDefinition(Compiler* compiler, bool isForeign)
 
   // Set up a symbol table for the class's fields. We'll initially compile
   // them to slots starting at zero. When the method is bound to the class, the
-  // bytecode will be adjusted by [wrenBindMethod] to take inherited fields
+  // bytecode will be adjusted by [pigeonBindMethod] to take inherited fields
   // into account.
-  wrenSymbolTableInit(&classInfo.fields);
+  pigeonSymbolTableInit(&classInfo.fields);
   
   // Set up symbol buffers to track duplicate static and instance methods.
-  wrenIntBufferInit(&classInfo.methods);
-  wrenIntBufferInit(&classInfo.staticMethods);
+  pigeonIntBufferInit(&classInfo.methods);
+  pigeonIntBufferInit(&classInfo.staticMethods);
   compiler->enclosingClass = &classInfo;
 
   // Compile the method definitions.
@@ -3796,9 +3796,9 @@ static void classDefinition(Compiler* compiler, bool isForeign)
   }
   
   // Clear symbol tables for tracking field and method names.
-  wrenSymbolTableClear(compiler->parser->vm, &classInfo.fields);
-  wrenIntBufferClear(compiler->parser->vm, &classInfo.methods);
-  wrenIntBufferClear(compiler->parser->vm, &classInfo.staticMethods);
+  pigeonSymbolTableClear(compiler->parser->vm, &classInfo.fields);
+  pigeonIntBufferClear(compiler->parser->vm, &classInfo.methods);
+  pigeonIntBufferClear(compiler->parser->vm, &classInfo.staticMethods);
   compiler->enclosingClass = NULL;
   popScope(compiler);
 }
@@ -3808,7 +3808,7 @@ static void importVariable(Compiler* compiler, const char* name, int length)
 {
   // Define a string constant for the variable name.
   int variableConstant = addConstant(compiler,
-        wrenNewStringLength(compiler->parser->vm, name, length));
+        pigeonNewStringLength(compiler->parser->vm, name, length));
 
   // Synthesize a Token for the variable name so declareVariable can use it.
   Token nameToken;
@@ -3866,7 +3866,7 @@ static void import(Compiler* compiler)
   if (!match(compiler, TOKEN_FOR))
   {
     // No 'for' clause - try to import the default export
-    WrenResolveDefaultExportFn resolveDefault = compiler->parser->vm->config.resolveDefaultExportFn;
+    PigeonResolveDefaultExportFn resolveDefault = compiler->parser->vm->config.resolveDefaultExportFn;
     if (resolveDefault != NULL)
     {
       const char* defaultExport = resolveDefault(compiler->parser->vm, moduleName);
@@ -3885,7 +3885,7 @@ static void import(Compiler* compiler)
   // Check for wildcard import
   if (match(compiler, TOKEN_STAR))
   {
-    WrenResolveExportsFn resolveExports = compiler->parser->vm->config.resolveExportsFn;
+    PigeonResolveExportsFn resolveExports = compiler->parser->vm->config.resolveExportsFn;
     if (resolveExports == NULL)
     {
       error(compiler, "Wildcard imports require resolveExportsFn to be set.");
@@ -3920,7 +3920,7 @@ static void import(Compiler* compiler)
 
     // Define a string constant for the original variable name.
     int sourceVariableConstant = addConstant(compiler,
-          wrenNewStringLength(compiler->parser->vm,
+          pigeonNewStringLength(compiler->parser->vm,
                         sourceVariableToken.start,
                         sourceVariableToken.length));
 
@@ -4011,7 +4011,7 @@ void definition(Compiler* compiler)
   }
 }
 
-ObjFn* wrenCompile(WrenVM* vm, ObjModule* module, const char* source,
+ObjFn* pigeonCompile(PigeonVM* vm, ObjModule* module, const char* source,
                    bool isExpression, bool printErrors)
 {
   // Skip the UTF-8 BOM if there is one.
@@ -4092,7 +4092,7 @@ ObjFn* wrenCompile(WrenVM* vm, ObjModule* module, const char* source,
   return endCompiler(&compiler, "(script)", 8);
 }
 
-void wrenBindMethodCode(ObjClass* classObj, ObjFn* fn)
+void pigeonBindMethodCode(ObjClass* classObj, ObjFn* fn)
 {
   int ip = 0;
   for (;;)
@@ -4138,7 +4138,7 @@ void wrenBindMethodCode(ObjClass* classObj, ObjFn* fn)
       {
         // Bind the nested closure too.
         int constant = (fn->code.data[ip + 1] << 8) | fn->code.data[ip + 2];
-        wrenBindMethodCode(classObj, AS_FN(fn->constants.data[constant]));
+        pigeonBindMethodCode(classObj, AS_FN(fn->constants.data[constant]));
         break;
       }
 
@@ -4153,31 +4153,31 @@ void wrenBindMethodCode(ObjClass* classObj, ObjFn* fn)
   }
 }
 
-void wrenMarkCompiler(WrenVM* vm, Compiler* compiler)
+void pigeonMarkCompiler(PigeonVM* vm, Compiler* compiler)
 {
-  wrenGrayValue(vm, compiler->parser->current.value);
-  wrenGrayValue(vm, compiler->parser->previous.value);
-  wrenGrayValue(vm, compiler->parser->next.value);
+  pigeonGrayValue(vm, compiler->parser->current.value);
+  pigeonGrayValue(vm, compiler->parser->previous.value);
+  pigeonGrayValue(vm, compiler->parser->next.value);
 
   // Walk up the parent chain to mark the outer compilers too. The VM only
   // tracks the innermost one.
   do
   {
-    wrenGrayObj(vm, (Obj*)compiler->fn);
-    wrenGrayObj(vm, (Obj*)compiler->constants);
-    wrenGrayObj(vm, (Obj*)compiler->attributes);
+    pigeonGrayObj(vm, (Obj*)compiler->fn);
+    pigeonGrayObj(vm, (Obj*)compiler->constants);
+    pigeonGrayObj(vm, (Obj*)compiler->attributes);
     
     if (compiler->enclosingClass != NULL)
     {
-      wrenBlackenSymbolTable(vm, &compiler->enclosingClass->fields);
+      pigeonBlackenSymbolTable(vm, &compiler->enclosingClass->fields);
 
       if(compiler->enclosingClass->methodAttributes != NULL) 
       {
-        wrenGrayObj(vm, (Obj*)compiler->enclosingClass->methodAttributes);
+        pigeonGrayObj(vm, (Obj*)compiler->enclosingClass->methodAttributes);
       }
       if(compiler->enclosingClass->classAttributes != NULL) 
       {
-        wrenGrayObj(vm, (Obj*)compiler->enclosingClass->classAttributes);
+        pigeonGrayObj(vm, (Obj*)compiler->enclosingClass->classAttributes);
       }
     }
     
@@ -4195,7 +4195,7 @@ static void disallowAttributes(Compiler* compiler)
   if (compiler->numAttributes > 0)
   {
     error(compiler, "Attributes can only specified before a class or a method");
-    wrenMapClear(compiler->parser->vm, compiler->attributes);
+    pigeonMapClear(compiler->parser->vm, compiler->attributes);
     compiler->numAttributes = 0;
   }
 }
@@ -4204,17 +4204,17 @@ static void disallowAttributes(Compiler* compiler)
 static void addToAttributeGroup(Compiler* compiler, 
                                 Value group, Value key, Value value) 
 {
-  WrenVM* vm = compiler->parser->vm;
+  PigeonVM* vm = compiler->parser->vm;
 
-  if(IS_OBJ(group)) wrenPushRoot(vm, AS_OBJ(group));
-  if(IS_OBJ(key))   wrenPushRoot(vm, AS_OBJ(key));
-  if(IS_OBJ(value)) wrenPushRoot(vm, AS_OBJ(value));
+  if(IS_OBJ(group)) pigeonPushRoot(vm, AS_OBJ(group));
+  if(IS_OBJ(key))   pigeonPushRoot(vm, AS_OBJ(key));
+  if(IS_OBJ(value)) pigeonPushRoot(vm, AS_OBJ(value));
 
-  Value groupMapValue = wrenMapGet(vm, compiler->attributes, group);
+  Value groupMapValue = pigeonMapGet(vm, compiler->attributes, group);
   if(IS_UNDEFINED(groupMapValue)) 
   {
-    groupMapValue = OBJ_VAL(wrenNewMap(vm));
-    wrenMapSet(vm, compiler->attributes, group, groupMapValue);
+    groupMapValue = OBJ_VAL(pigeonNewMap(vm));
+    pigeonMapSet(vm, compiler->attributes, group, groupMapValue);
   }
 
   //we store them as a map per so we can maintain duplicate keys 
@@ -4223,20 +4223,20 @@ static void addToAttributeGroup(Compiler* compiler,
 
   //var keyItems = group[key]
   //if(!keyItems) keyItems = group[key] = [] 
-  Value keyItemsValue = wrenMapGet(vm, groupMap, key);
+  Value keyItemsValue = pigeonMapGet(vm, groupMap, key);
   if(IS_UNDEFINED(keyItemsValue)) 
   {
-    keyItemsValue = OBJ_VAL(wrenNewList(vm, 0));
-    wrenMapSet(vm, groupMap, key, keyItemsValue);
+    keyItemsValue = OBJ_VAL(pigeonNewList(vm, 0));
+    pigeonMapSet(vm, groupMap, key, keyItemsValue);
   }
 
   //keyItems.add(value)
   ObjList* keyItems = AS_LIST(keyItemsValue);
-  wrenValueBufferWrite(vm, &keyItems->elements, value);
+  pigeonValueBufferWrite(vm, &keyItems->elements, value);
 
-  if(IS_OBJ(group)) wrenPopRoot(vm);
-  if(IS_OBJ(key))   wrenPopRoot(vm);
-  if(IS_OBJ(value)) wrenPopRoot(vm);
+  if(IS_OBJ(group)) pigeonPopRoot(vm);
+  if(IS_OBJ(key))   pigeonPopRoot(vm);
+  if(IS_OBJ(value)) pigeonPopRoot(vm);
 }
 
 
@@ -4332,7 +4332,7 @@ static void copyAttributes(Compiler* compiler, ObjMap* into)
   if(compiler->attributes->count == 0) return;
   if(into == NULL) return;
 
-  WrenVM* vm = compiler->parser->vm;
+  PigeonVM* vm = compiler->parser->vm;
   
   // Note we copy the actual values as is since we'll take ownership 
   // and clear the original map
@@ -4340,10 +4340,10 @@ static void copyAttributes(Compiler* compiler, ObjMap* into)
   {
     const MapEntry* attrEntry = &compiler->attributes->entries[attrIdx];
     if(IS_UNDEFINED(attrEntry->key)) continue;
-    wrenMapSet(vm, into, attrEntry->key, attrEntry->value);
+    pigeonMapSet(vm, into, attrEntry->key, attrEntry->value);
   }
   
-  wrenMapClear(vm, compiler->attributes);
+  pigeonMapClear(vm, compiler->attributes);
 }
 
 // Copy the current attributes stored in the compiler into the method specific
@@ -4356,11 +4356,11 @@ static void copyMethodAttributes(Compiler* compiler, bool isForeign,
 
   if(compiler->attributes->count == 0) return;
 
-  WrenVM* vm = compiler->parser->vm;
+  PigeonVM* vm = compiler->parser->vm;
   
   // Make a map for this method to copy into
-  ObjMap* methodAttr = wrenNewMap(vm);
-  wrenPushRoot(vm, (Obj*)methodAttr);
+  ObjMap* methodAttr = pigeonNewMap(vm);
+  pigeonPushRoot(vm, (Obj*)methodAttr);
   copyAttributes(compiler, methodAttr);
 
   // Include 'foreign static ' in front as needed
@@ -4375,12 +4375,12 @@ static void copyMethodAttributes(Compiler* compiler, bool isForeign,
   fullSignatureWithPrefix[fullLength] = '\0';
 
   if(compiler->enclosingClass->methodAttributes == NULL) {
-    compiler->enclosingClass->methodAttributes = wrenNewMap(vm);
+    compiler->enclosingClass->methodAttributes = pigeonNewMap(vm);
   }
   
   // Store the method attributes in the class map
-  Value key = wrenNewStringLength(vm, fullSignatureWithPrefix, fullLength);
-  wrenMapSet(vm, compiler->enclosingClass->methodAttributes, key, OBJ_VAL(methodAttr));
+  Value key = pigeonNewStringLength(vm, fullSignatureWithPrefix, fullLength);
+  pigeonMapSet(vm, compiler->enclosingClass->methodAttributes, key, OBJ_VAL(methodAttr));
 
-  wrenPopRoot(vm);
+  pigeonPopRoot(vm);
 }

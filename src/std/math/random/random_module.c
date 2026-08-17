@@ -8,7 +8,7 @@
 
 #include "random_module.h"
 #include "random.h"
-#include "wren.h"
+#include "pigeon.h"
 #include "wren_common.h"
 #include "wren_vm.h"
 
@@ -30,11 +30,11 @@ typedef struct {
 } PRNGState;
 
 // Foreign class allocator
-void randomStateAllocate(WrenVM* vm) {
-  int algorithm = (int)wrenGetSlotDouble(vm, 1);
-  uint64_t seed = (uint64_t)wrenGetSlotDouble(vm, 2);
+void randomStateAllocate(PigeonVM* vm) {
+  int algorithm = (int)pigeonGetSlotDouble(vm, 1);
+  uint64_t seed = (uint64_t)pigeonGetSlotDouble(vm, 2);
   
-  PRNGState* prng = (PRNGState*)wrenSetSlotNewForeign(vm, 0, 0, sizeof(PRNGState));
+  PRNGState* prng = (PRNGState*)pigeonSetSlotNewForeign(vm, 0, 0, sizeof(PRNGState));
   prng->algorithm = algorithm;
   
   switch (algorithm) {
@@ -57,8 +57,8 @@ void randomStateAllocate(WrenVM* vm) {
 }
 
 // Get next uint64
-static void randomNextUint64(WrenVM* vm) {
-  PRNGState* prng = (PRNGState*)wrenGetSlotForeign(vm, 0);
+static void randomNextUint64(PigeonVM* vm) {
+  PRNGState* prng = (PRNGState*)pigeonGetSlotForeign(vm, 0);
   uint64_t result;
   
   switch (prng->algorithm) {
@@ -79,12 +79,12 @@ static void randomNextUint64(WrenVM* vm) {
   }
   
   // Return as double (Wren numbers are doubles)
-  wrenSetSlotDouble(vm, 0, (double)result);
+  pigeonSetSlotDouble(vm, 0, (double)result);
 }
 
 // Get next double in [0, 1)
-static void randomNextDouble(WrenVM* vm) {
-  PRNGState* prng = (PRNGState*)wrenGetSlotForeign(vm, 0);
+static void randomNextDouble(PigeonVM* vm) {
+  PRNGState* prng = (PRNGState*)pigeonGetSlotForeign(vm, 0);
   uint64_t raw;
   
   switch (prng->algorithm) {
@@ -104,29 +104,29 @@ static void randomNextDouble(WrenVM* vm) {
       raw = xoshiro256pp_next(&prng->state.xoshiro256);
   }
   
-  wrenSetSlotDouble(vm, 0, uniform01_double(raw));
+  pigeonSetSlotDouble(vm, 0, uniform01_double(raw));
 }
 
 // Get system time for seeding
-static void randomSystemTime(WrenVM* vm) {
+static void randomSystemTime(PigeonVM* vm) {
   struct timeval tv;
   gettimeofday(&tv, NULL);
   uint64_t seed = (uint64_t)tv.tv_sec ^ (uint64_t)tv.tv_usec;
-  wrenSetSlotDouble(vm, 0, (double)seed);
+  pigeonSetSlotDouble(vm, 0, (double)seed);
 }
 
 // No-op init - allocation handles initialization
-static void randomInitState(WrenVM* vm) {
+static void randomInitState(PigeonVM* vm) {
   (void)vm;
 }
 
 #include "random.wren.inc"
 
-const char* wrenRandomModuleSource() {
+const char* pigeonRandomModuleSource() {
   return randomModuleSource;
 }
 
-WrenForeignMethodFn wrenRandomModuleBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
+PigeonForeignMethodFn pigeonRandomModuleBindForeignMethod(PigeonVM* PIGEON_MAYBE_UNUSED vm,
                                                       const char* className,
                                                       bool isStatic,
                                                       const char* signature)
@@ -150,12 +150,12 @@ WrenForeignMethodFn wrenRandomModuleBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED 
   return NULL;
 }
 
-WrenForeignClassMethods wrenRandomModuleBindForeignClass(WrenVM* WREN_MAYBE_UNUSED vm,
+PigeonForeignClassMethods pigeonRandomModuleBindForeignClass(PigeonVM* PIGEON_MAYBE_UNUSED vm,
                                                          const char* className)
 {
   (void)vm;
   
-  WrenForeignClassMethods methods = { NULL, NULL };
+  PigeonForeignClassMethods methods = { NULL, NULL };
   
   if (strcmp(className, "RandomState") == 0) {
     methods.allocate = randomStateAllocate;

@@ -6,13 +6,13 @@
 #include <string.h>
 
 #include "json.h"
-#include "wren.h"
+#include "pigeon.h"
 #include "wren_common.h"
 
 #define JSON_MAX_SLOTS 64
 
 typedef struct {
-  WrenVM* vm;
+  PigeonVM* vm;
   const char* src;
   int len;
   int pos;
@@ -84,7 +84,7 @@ static bool parseString(JsonParser* p, int outSlot) {
   while (p->pos < p->len) {
     unsigned char c = (unsigned char)p->src[p->pos++];
     if (c == '"') {
-      wrenSetSlotBytes(p->vm, outSlot, buf, len);
+      pigeonSetSlotBytes(p->vm, outSlot, buf, len);
       free(buf);
       return true;
     }
@@ -194,7 +194,7 @@ static bool parseNumber(JsonParser* p, int outSlot) {
   bool ok = end != NULL && end != tmp && *end == '\0';
   free(tmp);
   if (!ok) return jsonFail(p, "Invalid number");
-  wrenSetSlotDouble(p->vm, outSlot, n);
+  pigeonSetSlotDouble(p->vm, outSlot, n);
   return true;
 }
 
@@ -206,9 +206,9 @@ static bool parseLiteral(JsonParser* p, const char* lit, int outSlot) {
   }
   p->pos += n;
   if (lit[0] == 'n') {
-    wrenSetSlotNull(p->vm, outSlot);
+    pigeonSetSlotNull(p->vm, outSlot);
   } else {
-    wrenSetSlotBool(p->vm, outSlot, lit[0] == 't');
+    pigeonSetSlotBool(p->vm, outSlot, lit[0] == 't');
   }
   return true;
 }
@@ -216,13 +216,13 @@ static bool parseLiteral(JsonParser* p, const char* lit, int outSlot) {
 static bool parseArray(JsonParser* p, int outSlot) {
   if (!jsonTake(p, '[')) return jsonFail(p, "Expected '['");
   if (outSlot + 2 >= JSON_MAX_SLOTS) return jsonFail(p, "JSON nesting too deep");
-  wrenSetSlotNewList(p->vm, outSlot);
+  pigeonSetSlotNewList(p->vm, outSlot);
   if (jsonTake(p, ']')) return true;
 
   int elem = outSlot + 1;
   while (true) {
     if (!parseValue(p, elem)) return false;
-    wrenInsertInList(p->vm, outSlot, -1, elem);
+    pigeonInsertInList(p->vm, outSlot, -1, elem);
     if (jsonTake(p, ']')) return true;
     if (!jsonTake(p, ',')) return jsonFail(p, "Expected ',' or ']' in array");
   }
@@ -231,7 +231,7 @@ static bool parseArray(JsonParser* p, int outSlot) {
 static bool parseObject(JsonParser* p, int outSlot) {
   if (!jsonTake(p, '{')) return jsonFail(p, "Expected '{'");
   if (outSlot + 3 >= JSON_MAX_SLOTS) return jsonFail(p, "JSON nesting too deep");
-  wrenSetSlotNewMap(p->vm, outSlot);
+  pigeonSetSlotNewMap(p->vm, outSlot);
   if (jsonTake(p, '}')) return true;
 
   int keySlot = outSlot + 1;
@@ -240,7 +240,7 @@ static bool parseObject(JsonParser* p, int outSlot) {
     if (!parseString(p, keySlot)) return false;
     if (!jsonTake(p, ':')) return jsonFail(p, "Expected ':' after object key");
     if (!parseValue(p, valSlot)) return false;
-    wrenSetMapValue(p->vm, outSlot, keySlot, valSlot);
+    pigeonSetMapValue(p->vm, outSlot, keySlot, valSlot);
     if (jsonTake(p, '}')) return true;
     if (!jsonTake(p, ',')) return jsonFail(p, "Expected ',' or '}' in object");
   }
@@ -260,19 +260,19 @@ static bool parseValue(JsonParser* p, int outSlot) {
   return jsonFail(p, "Unexpected character");
 }
 
-static void jsonParse(WrenVM* vm) {
-  if (wrenGetSlotType(vm, 1) != WREN_TYPE_STRING) {
-    wrenSetSlotString(vm, 0, "JSON text must be a string");
-    wrenAbortFiber(vm, 0);
+static void jsonParse(PigeonVM* vm) {
+  if (pigeonGetSlotType(vm, 1) != PIGEON_TYPE_STRING) {
+    pigeonSetSlotString(vm, 0, "JSON text must be a string");
+    pigeonAbortFiber(vm, 0);
     return;
   }
 
   int length = 0;
-  const char* text = wrenGetSlotBytes(vm, 1, &length);
+  const char* text = pigeonGetSlotBytes(vm, 1, &length);
   char* copy = malloc((size_t)length + 1);
   if (copy == NULL) {
-    wrenSetSlotString(vm, 0, "Out of memory");
-    wrenAbortFiber(vm, 0);
+    pigeonSetSlotString(vm, 0, "Out of memory");
+    pigeonAbortFiber(vm, 0);
     return;
   }
   if (length > 0) memcpy(copy, text, (size_t)length);
@@ -285,48 +285,48 @@ static void jsonParse(WrenVM* vm) {
   p.pos = 0;
   p.err = NULL;
 
-  wrenEnsureSlots(vm, JSON_MAX_SLOTS);
+  pigeonEnsureSlots(vm, JSON_MAX_SLOTS);
   if (!parseValue(&p, 0)) {
-    wrenSetSlotString(vm, 0, p.err ? p.err : "Invalid JSON");
-    wrenAbortFiber(vm, 0);
+    pigeonSetSlotString(vm, 0, p.err ? p.err : "Invalid JSON");
+    pigeonAbortFiber(vm, 0);
     free(copy);
     return;
   }
   jsonSkip(&p);
   if (p.pos < p.len) {
-    wrenSetSlotString(vm, 0, "Trailing data after JSON value");
-    wrenAbortFiber(vm, 0);
+    pigeonSetSlotString(vm, 0, "Trailing data after JSON value");
+    pigeonAbortFiber(vm, 0);
     free(copy);
     return;
   }
   free(copy);
 }
 
-static void jsonEncodeNum(WrenVM* vm) {
-  double n = wrenGetSlotDouble(vm, 1);
+static void jsonEncodeNum(PigeonVM* vm) {
+  double n = pigeonGetSlotDouble(vm, 1);
   if (!isfinite(n)) {
-    wrenSetSlotString(vm, 0, "Cannot encode NaN or Infinity as JSON");
-    wrenAbortFiber(vm, 0);
+    pigeonSetSlotString(vm, 0, "Cannot encode NaN or Infinity as JSON");
+    pigeonAbortFiber(vm, 0);
     return;
   }
   char buf[64];
   int written = snprintf(buf, sizeof(buf), "%.17g", n);
   if (written < 0 || written >= (int)sizeof(buf)) {
-    wrenSetSlotString(vm, 0, "Number format failed");
-    wrenAbortFiber(vm, 0);
+    pigeonSetSlotString(vm, 0, "Number format failed");
+    pigeonAbortFiber(vm, 0);
     return;
   }
-  wrenSetSlotBytes(vm, 0, buf, (size_t)written);
+  pigeonSetSlotBytes(vm, 0, buf, (size_t)written);
 }
 
-static void jsonEncodeString(WrenVM* vm) {
+static void jsonEncodeString(PigeonVM* vm) {
   int length = 0;
-  const char* s = wrenGetSlotBytes(vm, 1, &length);
+  const char* s = pigeonGetSlotBytes(vm, 1, &length);
   size_t cap = (size_t)length * 6 + 2;
   char* buf = malloc(cap);
   if (buf == NULL) {
-    wrenSetSlotString(vm, 0, "Out of memory");
-    wrenAbortFiber(vm, 0);
+    pigeonSetSlotString(vm, 0, "Out of memory");
+    pigeonAbortFiber(vm, 0);
     return;
   }
 
@@ -359,17 +359,17 @@ static void jsonEncodeString(WrenVM* vm) {
     n += (size_t)elen;
   }
   buf[n++] = '"';
-  wrenSetSlotBytes(vm, 0, buf, n);
+  pigeonSetSlotBytes(vm, 0, buf, n);
   free(buf);
 }
 
 #include "json.wren.inc"
 
-const char* wrenJsonSource() {
+const char* pigeonJsonSource() {
   return jsonModuleSource;
 }
 
-WrenForeignMethodFn wrenJsonBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
+PigeonForeignMethodFn pigeonJsonBindForeignMethod(PigeonVM* PIGEON_MAYBE_UNUSED vm,
                                               const char* className,
                                               bool isStatic,
                                               const char* signature)
@@ -381,9 +381,9 @@ WrenForeignMethodFn wrenJsonBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
   return NULL;
 }
 
-WrenForeignClassMethods wrenJsonBindForeignClass(WrenVM* WREN_MAYBE_UNUSED vm,
-                                                 const char* WREN_MAYBE_UNUSED className)
+PigeonForeignClassMethods pigeonJsonBindForeignClass(PigeonVM* PIGEON_MAYBE_UNUSED vm,
+                                                 const char* PIGEON_MAYBE_UNUSED className)
 {
-  WrenForeignClassMethods methods = { NULL, NULL };
+  PigeonForeignClassMethods methods = { NULL, NULL };
   return methods;
 }

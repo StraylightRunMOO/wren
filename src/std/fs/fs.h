@@ -1,14 +1,14 @@
 #ifndef wren_fs_h
 #define wren_fs_h
 
-#include "wren.h"
+#include "pigeon.h"
 
-const char* wrenFsSource();
-WrenForeignMethodFn wrenFsBindForeignMethod(WrenVM* vm,
+const char* pigeonFsSource();
+PigeonForeignMethodFn pigeonFsBindForeignMethod(PigeonVM* vm,
                                             const char* className,
                                             bool isStatic,
                                             const char* signature);
-WrenForeignClassMethods wrenFsBindForeignClass(WrenVM* vm,
+PigeonForeignClassMethods pigeonFsBindForeignClass(PigeonVM* vm,
                                                const char* className);
 
 #endif

@@ -1,27 +1,27 @@
 #pragma once
-#ifndef WREN_TEST_H
-#define WREN_TEST_H
+#ifndef PIGEON_TEST_H
+#define PIGEON_TEST_H
 
 #include <stdio.h>
 #include <string.h>
-#include "wren.h"
+#include "pigeon.h"
 
 // Exit codes used by the wren binaries, following the BSD standard
 //
 // The interpreter was used with an incorrect number of arguments
-#define WREN_EX_USAGE 64
+#define PIGEON_EX_USAGE 64
 
 // Compilation error
-#define WREN_EX_DATAERR 65
+#define PIGEON_EX_DATAERR 65
 
 // Runtime error
-#define WREN_EX_SOFTWARE 70
+#define PIGEON_EX_SOFTWARE 70
 
 // Cannot open input file
-#define WREN_EX_NOINPUT 66
+#define PIGEON_EX_NOINPUT 66
 
 // I/O Error
-#define WREN_EX_IOERR 74
+#define PIGEON_EX_IOERR 74
 
 // The maximum number of components in a path. We can't normalize a path that
 // contains more than this number of parts. The number here assumes a max path
@@ -76,14 +76,14 @@ typedef struct
   PathType pathType(const char* path);
 //file helpers
   char* readFile(const char* path);
-  WrenLoadModuleResult readModule(WrenVM* vm, const char* module);
+  PigeonLoadModuleResult readModule(PigeonVM* vm, const char* module);
 //vm helpers
-  void vm_write(WrenVM* vm, const char* text);
-  void reportError(WrenVM* vm, WrenErrorType type, const char* module, int line, const char* message);
-  const char* resolveModule(WrenVM* vm, const char* importer, const char* module);
+  void vm_write(PigeonVM* vm, const char* text);
+  void reportError(PigeonVM* vm, PigeonErrorType type, const char* module, int line, const char* message);
+  const char* resolveModule(PigeonVM* vm, const char* importer, const char* module);
 //main helpers
   bool isModuleAnAPITest(const char* module);
-  WrenInterpretResult runFile(WrenVM* vm, const char* path);
+  PigeonInterpretResult runFile(PigeonVM* vm, const char* path);
   int handle_args(int argc, const char* argv[]);
 
-#endif //WREN_TEST_H
+#endif //PIGEON_TEST_H

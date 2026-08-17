@@ -1,11 +1,11 @@
 #pragma once
-#ifndef WREN_API_TESTS_H
-#define WREN_API_TESTS_H
+#ifndef PIGEON_API_TESTS_H
+#define PIGEON_API_TESTS_H
 
 #include <stdio.h>
 #include <string.h>
 
-#include "wren.h"
+#include "pigeon.h"
 
 #include "benchmark.h"
 #include "call.h"
@@ -25,14 +25,14 @@
 #include "slots.h"
 #include "user_data.h"
 
-int APITest_Run(WrenVM* vm, const char* inTestName);
+int APITest_Run(PigeonVM* vm, const char* inTestName);
 
-WrenForeignMethodFn APITest_bindForeignMethod(
-    WrenVM* vm, const char* module, const char* className,
+PigeonForeignMethodFn APITest_bindForeignMethod(
+    PigeonVM* vm, const char* module, const char* className,
     bool isStatic, const char* signature);
 
-WrenForeignClassMethods APITest_bindForeignClass(
-    WrenVM* vm, const char* module, const char* className);
+PigeonForeignClassMethods APITest_bindForeignClass(
+    PigeonVM* vm, const char* module, const char* className);
 
 
-#endif //WREN_API_TESTS_H
+#endif //PIGEON_API_TESTS_H

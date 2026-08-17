@@ -5,7 +5,7 @@
 // Validates that [value] is an integer within `[0, count)`. Also allows
 // negative indices which map backwards from the end. Returns the valid positive
 // index value. If invalid, reports an error and returns `UINT32_MAX`.
-static uint32_t validateIndexValue(WrenVM* vm, uint32_t count, double value,
+static uint32_t validateIndexValue(PigeonVM* vm, uint32_t count, double value,
                                    const char* argName)
 {
   if (!validateIntValue(vm, value, argName)) return UINT32_MAX;
@@ -16,56 +16,56 @@ static uint32_t validateIndexValue(WrenVM* vm, uint32_t count, double value,
   // Check bounds.
   if (value >= 0 && value < count) return (uint32_t)value;
   
-  vm->fiber->error = wrenStringFormat(vm, "$ out of bounds.", argName);
+  vm->fiber->error = pigeonStringFormat(vm, "$ out of bounds.", argName);
   return UINT32_MAX;
 }
 
-bool validateFn(WrenVM* vm, Value arg, const char* argName)
+bool validateFn(PigeonVM* vm, Value arg, const char* argName)
 {
   if (IS_CLOSURE(arg)) return true;
   RETURN_ERROR_FMT("$ must be a function.", argName);
 }
 
-bool validateNum(WrenVM* vm, Value arg, const char* argName)
+bool validateNum(PigeonVM* vm, Value arg, const char* argName)
 {
   if (IS_NUM(arg)) return true;
   RETURN_ERROR_FMT("$ must be a number.", argName);
 }
 
-bool validateIntValue(WrenVM* vm, double value, const char* argName)
+bool validateIntValue(PigeonVM* vm, double value, const char* argName)
 {
   if (trunc(value) == value) return true;
   RETURN_ERROR_FMT("$ must be an integer.", argName);
 }
 
-bool validateInt(WrenVM* vm, Value arg, const char* argName)
+bool validateInt(PigeonVM* vm, Value arg, const char* argName)
 {
   // Make sure it's a number first.
   if (!validateNum(vm, arg, argName)) return false;
   return validateIntValue(vm, AS_NUM(arg), argName);
 }
 
-bool validateKey(WrenVM* vm, Value arg)
+bool validateKey(PigeonVM* vm, Value arg)
 {
-  if (wrenMapIsValidKey(arg)) return true;
+  if (pigeonMapIsValidKey(arg)) return true;
 
   RETURN_ERROR("Key must be a value type.");
 }
 
-uint32_t validateIndex(WrenVM* vm, Value arg, uint32_t count,
+uint32_t validateIndex(PigeonVM* vm, Value arg, uint32_t count,
                        const char* argName)
 {
   if (!validateNum(vm, arg, argName)) return UINT32_MAX;
   return validateIndexValue(vm, count, AS_NUM(arg), argName);
 }
 
-bool validateString(WrenVM* vm, Value arg, const char* argName)
+bool validateString(PigeonVM* vm, Value arg, const char* argName)
 {
   if (IS_STRING(arg)) return true;
   RETURN_ERROR_FMT("$ must be a string.", argName);
 }
 
-uint32_t calculateRange(WrenVM* vm, ObjRange* range, uint32_t* length,
+uint32_t calculateRange(PigeonVM* vm, ObjRange* range, uint32_t* length,
                         int* step)
 {
   *step = 0;

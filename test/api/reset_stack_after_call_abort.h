@@ -1,3 +1,3 @@
-#include "wren.h"
+#include "pigeon.h"
 
-int resetStackAfterCallAbortRunTests(WrenVM* vm);
+int resetStackAfterCallAbortRunTests(PigeonVM* vm);

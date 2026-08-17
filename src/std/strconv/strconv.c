@@ -5,47 +5,47 @@
 #include <errno.h>
 
 #include "strconv.h"
-#include "wren.h"
+#include "pigeon.h"
 #include "wren_common.h"
 #include "wren_vm.h"
 
 // Parse integer with base
-static void strconvParseInt(WrenVM* vm) {
-  const char* s = wrenGetSlotString(vm, 1);
-  int base = (int)wrenGetSlotDouble(vm, 2);
+static void strconvParseInt(PigeonVM* vm) {
+  const char* s = pigeonGetSlotString(vm, 1);
+  int base = (int)pigeonGetSlotDouble(vm, 2);
   
   char* end;
   errno = 0;
   long val = strtol(s, &end, base);
   
   if (errno != 0 || *end != '\0') {
-    vm->fiber->error = wrenNewString(vm, "Invalid integer");
+    vm->fiber->error = pigeonNewString(vm, "Invalid integer");
     return;
   }
   
-  wrenSetSlotDouble(vm, 0, (double)val);
+  pigeonSetSlotDouble(vm, 0, (double)val);
 }
 
 // Parse float
-static void strconvParseFloat(WrenVM* vm) {
-  const char* s = wrenGetSlotString(vm, 1);
+static void strconvParseFloat(PigeonVM* vm) {
+  const char* s = pigeonGetSlotString(vm, 1);
   
   char* end;
   errno = 0;
   double val = strtod(s, &end);
   
   if (errno != 0 || *end != '\0') {
-    vm->fiber->error = wrenNewString(vm, "Invalid float");
+    vm->fiber->error = pigeonNewString(vm, "Invalid float");
     return;
   }
   
-  wrenSetSlotDouble(vm, 0, val);
+  pigeonSetSlotDouble(vm, 0, val);
 }
 
 // Format integer
-static void strconvFormatInt(WrenVM* vm) {
-  double n = wrenGetSlotDouble(vm, 1);
-  int base = (int)wrenGetSlotDouble(vm, 2);
+static void strconvFormatInt(PigeonVM* vm) {
+  double n = pigeonGetSlotDouble(vm, 1);
+  int base = (int)pigeonGetSlotDouble(vm, 2);
   
   char buf[64];
   const char* digits = "0123456789abcdefghijklmnopqrstuvwxyz";
@@ -70,14 +70,14 @@ static void strconvFormatInt(WrenVM* vm) {
     buf[i - 1 - j] = tmp;
   }
   
-  wrenSetSlotString(vm, 0, buf);
+  pigeonSetSlotString(vm, 0, buf);
 }
 
 // Format float
-static void strconvFormatFloat(WrenVM* vm) {
-  double n = wrenGetSlotDouble(vm, 1);
-  int prec = (int)wrenGetSlotDouble(vm, 2);
-  int fmt = (int)wrenGetSlotDouble(vm, 3);
+static void strconvFormatFloat(PigeonVM* vm) {
+  double n = pigeonGetSlotDouble(vm, 1);
+  int prec = (int)pigeonGetSlotDouble(vm, 2);
+  int fmt = (int)pigeonGetSlotDouble(vm, 3);
   
   char buf[256];
   const char* format;
@@ -90,12 +90,12 @@ static void strconvFormatFloat(WrenVM* vm) {
     snprintf(buf, sizeof(buf), format, prec, n);
   }
   
-  wrenSetSlotString(vm, 0, buf);
+  pigeonSetSlotString(vm, 0, buf);
 }
 
 // Quote string
-static void strconvQuote(WrenVM* vm) {
-  const char* s = wrenGetSlotString(vm, 1);
+static void strconvQuote(PigeonVM* vm) {
+  const char* s = pigeonGetSlotString(vm, 1);
   size_t len = strlen(s);
   
   // Calculate needed size
@@ -112,7 +112,7 @@ static void strconvQuote(WrenVM* vm) {
   
   char* buf = (char*)malloc(needed + 1);
   if (!buf) {
-    wrenSetSlotNull(vm, 0);
+    pigeonSetSlotNull(vm, 0);
     return;
   }
   
@@ -131,23 +131,23 @@ static void strconvQuote(WrenVM* vm) {
   buf[j++] = '"';
   buf[j] = '\0';
   
-  wrenSetSlotString(vm, 0, buf);
+  pigeonSetSlotString(vm, 0, buf);
   free(buf);
 }
 
 // Unquote string
-static void strconvUnquote(WrenVM* vm) {
-  const char* s = wrenGetSlotString(vm, 1);
+static void strconvUnquote(PigeonVM* vm) {
+  const char* s = pigeonGetSlotString(vm, 1);
   size_t len = strlen(s);
   
   if (len < 2 || s[0] != '"' || s[len - 1] != '"') {
-    vm->fiber->error = wrenNewString(vm, "Invalid quoted string");
+    vm->fiber->error = pigeonNewString(vm, "Invalid quoted string");
     return;
   }
   
   char* buf = (char*)malloc(len);
   if (!buf) {
-    wrenSetSlotNull(vm, 0);
+    pigeonSetSlotNull(vm, 0);
     return;
   }
   
@@ -168,35 +168,35 @@ static void strconvUnquote(WrenVM* vm) {
   }
   buf[j] = '\0';
   
-  wrenSetSlotString(vm, 0, buf);
+  pigeonSetSlotString(vm, 0, buf);
   free(buf);
 }
 
 // Check if valid int
-static void strconvIsInt(WrenVM* vm) {
-  const char* s = wrenGetSlotString(vm, 1);
+static void strconvIsInt(PigeonVM* vm) {
+  const char* s = pigeonGetSlotString(vm, 1);
   char* end;
   errno = 0;
   strtol(s, &end, 10);
-  wrenSetSlotBool(vm, 0, errno == 0 && *end == '\0');
+  pigeonSetSlotBool(vm, 0, errno == 0 && *end == '\0');
 }
 
 // Check if valid float
-static void strconvIsFloat(WrenVM* vm) {
-  const char* s = wrenGetSlotString(vm, 1);
+static void strconvIsFloat(PigeonVM* vm) {
+  const char* s = pigeonGetSlotString(vm, 1);
   char* end;
   errno = 0;
   strtod(s, &end);
-  wrenSetSlotBool(vm, 0, errno == 0 && *end == '\0');
+  pigeonSetSlotBool(vm, 0, errno == 0 && *end == '\0');
 }
 
 #include "strconv.wren.inc"
 
-const char* wrenStrconvSource() {
+const char* pigeonStrconvSource() {
   return strconvModuleSource;
 }
 
-WrenForeignMethodFn wrenStrconvBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
+PigeonForeignMethodFn pigeonStrconvBindForeignMethod(PigeonVM* PIGEON_MAYBE_UNUSED vm,
                                                  const char* className,
                                                  bool isStatic,
                                                  const char* signature)

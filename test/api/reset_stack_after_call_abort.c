@@ -1,29 +1,29 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "wren.h"
+#include "pigeon.h"
 
-int resetStackAfterCallAbortRunTests(WrenVM* vm)
+int resetStackAfterCallAbortRunTests(PigeonVM* vm)
 {
-  wrenEnsureSlots(vm, 1);
-  wrenGetVariable(vm, "./test/api/reset_stack_after_call_abort", "Test", 0);
-  WrenHandle* testClass = wrenGetSlotHandle(vm, 0);
+  pigeonEnsureSlots(vm, 1);
+  pigeonGetVariable(vm, "./test/api/reset_stack_after_call_abort", "Test", 0);
+  PigeonHandle* testClass = pigeonGetSlotHandle(vm, 0);
 
-  WrenHandle* abortFiber = wrenMakeCallHandle(vm, "abortFiber()");
-  WrenHandle* afterAbort = wrenMakeCallHandle(vm, "afterAbort(_,_)");
+  PigeonHandle* abortFiber = pigeonMakeCallHandle(vm, "abortFiber()");
+  PigeonHandle* afterAbort = pigeonMakeCallHandle(vm, "afterAbort(_,_)");
 
-  wrenEnsureSlots(vm, 1);
-  wrenSetSlotHandle(vm, 0, testClass);
-  wrenCall(vm, abortFiber);
+  pigeonEnsureSlots(vm, 1);
+  pigeonSetSlotHandle(vm, 0, testClass);
+  pigeonCall(vm, abortFiber);
 
-  wrenEnsureSlots(vm, 3);
-  wrenSetSlotHandle(vm, 0, testClass);
-  wrenSetSlotDouble(vm, 1, 1.0);
-  wrenSetSlotDouble(vm, 2, 2.0);
-  wrenCall(vm, afterAbort);
+  pigeonEnsureSlots(vm, 3);
+  pigeonSetSlotHandle(vm, 0, testClass);
+  pigeonSetSlotDouble(vm, 1, 1.0);
+  pigeonSetSlotDouble(vm, 2, 2.0);
+  pigeonCall(vm, afterAbort);
 
-  wrenReleaseHandle(vm, testClass);
-  wrenReleaseHandle(vm, abortFiber);
-  wrenReleaseHandle(vm, afterAbort);
+  pigeonReleaseHandle(vm, testClass);
+  pigeonReleaseHandle(vm, abortFiber);
+  pigeonReleaseHandle(vm, afterAbort);
   return 0;
 }

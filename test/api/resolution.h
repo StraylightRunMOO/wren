@@ -1,4 +1,4 @@
-#include "wren.h"
+#include "pigeon.h"
 
-WrenForeignMethodFn resolutionBindMethod(const char* signature);
-void resolutionBindClass(const char* className, WrenForeignClassMethods* methods);
+PigeonForeignMethodFn resolutionBindMethod(const char* signature);
+void resolutionBindClass(const char* className, PigeonForeignClassMethods* methods);

@@ -320,7 +320,7 @@
     if (buffer == NULL)
     {
       fprintf(stderr, "Could not read file \"%s\".\n", path);
-      exit(WREN_EX_IOERR);
+      exit(PIGEON_EX_IOERR);
     }
 
     // Read the entire file.
@@ -328,7 +328,7 @@
     if (bytesRead < fileSize)
     {
       fprintf(stderr, "Could not read file \"%s\".\n", path);
-      exit(WREN_EX_IOERR);
+      exit(PIGEON_EX_IOERR);
     }
 
     // Terminate the string.
@@ -340,31 +340,31 @@
 
 //VM bindings
 
-  void vm_write(WrenVM* vm, const char* text)
+  void vm_write(PigeonVM* vm, const char* text)
   {
     printf("%s", text);
   }
 
-  void reportError(WrenVM* vm, WrenErrorType type, 
+  void reportError(PigeonVM* vm, PigeonErrorType type, 
     const char* module, int line, const char* message)
   {
     switch (type)
     {
-      case WREN_ERROR_COMPILE:
+      case PIGEON_ERROR_COMPILE:
         fprintf(stderr, "[%s line %d] %s\n", module, line, message);
         break;
 
-      case WREN_ERROR_RUNTIME:
+      case PIGEON_ERROR_RUNTIME:
         fprintf(stderr, "%s\n", message);
         break;
 
-      case WREN_ERROR_STACK_TRACE:
+      case PIGEON_ERROR_STACK_TRACE:
         fprintf(stderr, "[%s line %d] in %s\n", module, line, message);
         break;
     }
   }
 
-  void readModuleComplete(WrenVM* vm, const char* module, WrenLoadModuleResult result)
+  void readModuleComplete(PigeonVM* vm, const char* module, PigeonLoadModuleResult result)
   {
     if (result.source) {
       free((void*)result.source);
@@ -372,12 +372,12 @@
     }
   }
 
-  WrenLoadModuleResult readModule(WrenVM* vm, const char* module) 
+  PigeonLoadModuleResult readModule(PigeonVM* vm, const char* module) 
   {
     //source may or may not be null
-    WrenLoadModuleResult result = {0};
+    PigeonLoadModuleResult result = {0};
 
-    #ifdef WREN_TRY
+    #ifdef PIGEON_TRY
       return result;
     #endif
 
@@ -402,7 +402,7 @@
   //   containing [importer] and then normalized.
   //
   //   For example, importing "./a/./b/../c" from "./d/e/f" gives you "./d/e/a/c".
-  const char* resolveModule(WrenVM* vm, const char* importer, const char* module)
+  const char* resolveModule(PigeonVM* vm, const char* importer, const char* module)
   {
     // Logical import strings are used as-is and need no resolution.
     if (pathType(module) == PATH_TYPE_SIMPLE) return module;
@@ -430,13 +430,13 @@
     return false;
   }
 
-  WrenInterpretResult runFile(WrenVM* vm, const char* path)
+  PigeonInterpretResult runFile(PigeonVM* vm, const char* path)
   {
     char* source = readFile(path);
     if (source == NULL)
     {
       fprintf(stderr, "Could not find file \"%s\".\n", path);
-      exit(WREN_EX_NOINPUT);
+      exit(PIGEON_EX_NOINPUT);
     }
 
     // If it looks like a relative path, make it explicitly relative so that we
@@ -453,7 +453,7 @@
 
     pathRemoveExtension(module);
 
-    WrenInterpretResult result = wrenInterpret(vm, module->chars, source);
+    PigeonInterpretResult result = pigeonInterpret(vm, module->chars, source);
 
     pathFree(module);
     free(source);
@@ -467,12 +467,12 @@
     if (argc < 2)
     {
       printf("This is a Pigeon test runner.\nUsage: pigeon_test [file]\n");
-      return WREN_EX_USAGE;
+      return PIGEON_EX_USAGE;
     }
 
     if (argc == 2 && strcmp(argv[1], "--version") == 0)
     {
-      printf("pigeon_test is running on Pigeon version %s\n", WREN_VERSION_STRING);
+      printf("pigeon_test is running on Pigeon version %s\n", PIGEON_VERSION_STRING);
       return 1;
     }
 

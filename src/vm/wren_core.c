@@ -19,20 +19,20 @@
 // 'iterable' is stored here so the GC can trace and keep it alive while the
 // producer coroutine yields copies of its elements.
 typedef struct {
-    WrenIterator* it;
+    PigeonIterator* it;
     Value iterable;
 } GeneratorData;
 
 // GC mark helper — called from blackenForeign when the foreign is a Generator.
 // Exposed so wren_value.c can call it without a circular dependency.
-void wrenGeneratorBlacken(WrenVM* vm, ObjForeign* foreign)
+void pigeonGeneratorBlacken(PigeonVM* vm, ObjForeign* foreign)
 {
     GeneratorData* gd = (GeneratorData*)foreign->data;
-    wrenGrayValue(vm, gd->iterable);
-    wrenIteratorGray(vm, gd->it);
+    pigeonGrayValue(vm, gd->iterable);
+    pigeonIteratorGray(vm, gd->it);
 }
 
-void wrenGeneratorDetachAll(WrenVM* vm)
+void pigeonGeneratorDetachAll(PigeonVM* vm)
 {
   if (vm->generatorClass == NULL) return;
   for (Obj* obj = vm->first; obj != NULL; obj = obj->next)
@@ -96,7 +96,7 @@ DEF_PRIMITIVE(fiber_new)
     RETURN_ERROR("Function cannot take more than one parameter.");
   }
   
-  RETURN_OBJ(wrenNewFiber(vm, closure));
+  RETURN_OBJ(pigeonNewFiber(vm, closure));
 }
 
 DEF_PRIMITIVE(fiber_abort)
@@ -114,11 +114,11 @@ DEF_PRIMITIVE(fiber_abort)
 //
 // [hasValue] is true if a value in [args] is being passed to the new fiber.
 // Otherwise, `null` is implicitly being passed.
-static bool runFiber(WrenVM* vm, ObjFiber* fiber, Value* args, bool isCall,
+static bool runFiber(PigeonVM* vm, ObjFiber* fiber, Value* args, bool isCall,
                      bool hasValue, const char* verb)
 {
 
-  if (wrenHasError(fiber))
+  if (pigeonHasError(fiber))
   {
     RETURN_ERROR_FMT("Cannot $ an aborted fiber.", verb);
   }
@@ -191,7 +191,7 @@ DEF_PRIMITIVE(fiber_error)
 DEF_PRIMITIVE(fiber_isDone)
 {
   ObjFiber* runFiber = AS_FIBER(args[0]);
-  RETURN_BOOL(runFiber->numFrames == 0 || wrenHasError(runFiber));
+  RETURN_BOOL(runFiber->numFrames == 0 || pigeonHasError(runFiber));
 }
 
 DEF_PRIMITIVE(fiber_suspend)
@@ -224,7 +224,7 @@ DEF_PRIMITIVE(fiber_try)
   runFiber(vm, AS_FIBER(args[0]), args, true, false, "try");
   
   // If we're switching to a valid fiber to try, remember that we're trying it.
-  if (!wrenHasError(vm->fiber)) vm->fiber->state = FIBER_TRY;
+  if (!pigeonHasError(vm->fiber)) vm->fiber->state = FIBER_TRY;
   return false;
 }
 
@@ -233,7 +233,7 @@ DEF_PRIMITIVE(fiber_try1)
   runFiber(vm, AS_FIBER(args[0]), args, true, true, "try");
   
   // If we're switching to a valid fiber to try, remember that we're trying it.
-  if (!wrenHasError(vm->fiber)) vm->fiber->state = FIBER_TRY;
+  if (!pigeonHasError(vm->fiber)) vm->fiber->state = FIBER_TRY;
   return false;
 }
 
@@ -284,10 +284,10 @@ DEF_PRIMITIVE(fn_arity)
   RETURN_NUM(AS_CLOSURE(args[0])->fn->arity);
 }
 
-static void call_fn(WrenVM* vm, Value* args, int numArgs)
+static void call_fn(PigeonVM* vm, Value* args, int numArgs)
 {
   // +1 to include the function itself.
-  wrenCallFunction(vm, vm->fiber, AS_CLOSURE(args[0]), numArgs + 1);
+  pigeonCallFunction(vm, vm->fiber, AS_CLOSURE(args[0]), numArgs + 1);
 }
 
 #define DEF_FN_CALL(numArgs)                                                   \
@@ -327,7 +327,7 @@ DEF_PRIMITIVE(list_filled)
   if (AS_NUM(args[1]) < 0) RETURN_ERROR("Size cannot be negative.");
   
   uint32_t size = (uint32_t)AS_NUM(args[1]);
-  ObjList* list = wrenNewList(vm, size);
+  ObjList* list = pigeonNewList(vm, size);
   
   for (uint32_t i = 0; i < size; i++)
   {
@@ -339,12 +339,12 @@ DEF_PRIMITIVE(list_filled)
 
 DEF_PRIMITIVE(list_new)
 {
-  RETURN_OBJ(wrenNewList(vm, 0));
+  RETURN_OBJ(pigeonNewList(vm, 0));
 }
 
 DEF_PRIMITIVE(list_add)
 {
-  wrenValueBufferWrite(vm, &AS_LIST(args[0])->elements, args[1]);
+  pigeonValueBufferWrite(vm, &AS_LIST(args[0])->elements, args[1]);
   RETURN_VAL(args[1]);
 }
 
@@ -353,7 +353,7 @@ DEF_PRIMITIVE(list_add)
 // minimize stack churn.
 DEF_PRIMITIVE(list_addCore)
 {
-  wrenValueBufferWrite(vm, &AS_LIST(args[0])->elements, args[1]);
+  pigeonValueBufferWrite(vm, &AS_LIST(args[0])->elements, args[1]);
   
   // Return the list.
   RETURN_VAL(args[0]);
@@ -361,7 +361,7 @@ DEF_PRIMITIVE(list_addCore)
 
 DEF_PRIMITIVE(list_clear)
 {
-  wrenValueBufferClear(vm, &AS_LIST(args[0])->elements);
+  pigeonValueBufferClear(vm, &AS_LIST(args[0])->elements);
   RETURN_NULL;
 }
 
@@ -379,7 +379,7 @@ DEF_PRIMITIVE(list_insert)
                                  "Index");
   if (index == UINT32_MAX) return false;
 
-  wrenListInsert(vm, list, args[2], index);
+  pigeonListInsert(vm, list, args[2], index);
   RETURN_VAL(args[2]);
 }
 
@@ -411,12 +411,12 @@ DEF_PRIMITIVE(list_iteratorValue)
   if (!validateInt(vm, args[1], "Iterator")) return false;
   double iterVal = AS_NUM(args[1]);
   if (iterVal < 1) {
-    vm->fiber->error = wrenStringFormat(vm, "Iterator out of bounds.");
+    vm->fiber->error = pigeonStringFormat(vm, "Iterator out of bounds.");
     return false;
   }
   uint32_t index = (uint32_t)(iterVal - 1);
   if (index >= list->elements.count) {
-    vm->fiber->error = wrenStringFormat(vm, "Iterator out of bounds.");
+    vm->fiber->error = pigeonStringFormat(vm, "Iterator out of bounds.");
     return false;
   }
 
@@ -429,20 +429,20 @@ DEF_PRIMITIVE(list_removeAt)
   uint32_t index = validateIndex(vm, args[1], list->elements.count, "Index");
   if (index == UINT32_MAX) return false;
 
-  RETURN_VAL(wrenListRemoveAt(vm, list, index));
+  RETURN_VAL(pigeonListRemoveAt(vm, list, index));
 }
 
 DEF_PRIMITIVE(list_removeValue) {
   ObjList* list = AS_LIST(args[0]);
-  int index = wrenListIndexOf(vm, list, args[1]);
+  int index = pigeonListIndexOf(vm, list, args[1]);
   if(index == -1) RETURN_NULL;
-  RETURN_VAL(wrenListRemoveAt(vm, list, index));
+  RETURN_VAL(pigeonListRemoveAt(vm, list, index));
 }
 
 DEF_PRIMITIVE(list_indexOf)
 {
   ObjList* list = AS_LIST(args[0]);
-  RETURN_NUM(wrenListIndexOf(vm, list, args[1]));
+  RETURN_NUM(pigeonListIndexOf(vm, list, args[1]));
 }
 
 DEF_PRIMITIVE(list_swap)
@@ -483,7 +483,7 @@ DEF_PRIMITIVE(list_subscript)
   uint32_t start = calculateRange(vm, AS_RANGE(args[1]), &count, &step);
   if (start == UINT32_MAX) return false;
 
-  ObjList* result = wrenNewList(vm, count);
+  ObjList* result = pigeonNewList(vm, count);
   for (uint32_t i = 0; i < count; i++)
   {
     result->elements.data[i] = list->elements.data[start + i * step];
@@ -505,7 +505,7 @@ DEF_PRIMITIVE(list_subscriptSetter)
 
 DEF_PRIMITIVE(map_new)
 {
-  RETURN_OBJ(wrenNewMap(vm));
+  RETURN_OBJ(pigeonNewMap(vm));
 }
 
 DEF_PRIMITIVE(map_subscript)
@@ -513,7 +513,7 @@ DEF_PRIMITIVE(map_subscript)
   if (!validateKey(vm, args[1])) return false;
 
   ObjMap* map = AS_MAP(args[0]);
-  Value value = wrenMapGet(vm, map, args[1]);
+  Value value = pigeonMapGet(vm, map, args[1]);
   if (IS_UNDEFINED(value)) RETURN_NULL;
 
   RETURN_VAL(value);
@@ -523,7 +523,7 @@ DEF_PRIMITIVE(map_subscriptSetter)
 {
   if (!validateKey(vm, args[1])) return false;
 
-  wrenMapSet(vm, AS_MAP(args[0]), args[1], args[2]);
+  pigeonMapSet(vm, AS_MAP(args[0]), args[1], args[2]);
   RETURN_VAL(args[2]);
 }
 
@@ -534,7 +534,7 @@ DEF_PRIMITIVE(map_addCore)
 {
   if (!validateKey(vm, args[1])) return false;
   
-  wrenMapSet(vm, AS_MAP(args[0]), args[1], args[2]);
+  pigeonMapSet(vm, AS_MAP(args[0]), args[1], args[2]);
   
   // Return the map itself.
   RETURN_VAL(args[0]);
@@ -542,7 +542,7 @@ DEF_PRIMITIVE(map_addCore)
 
 DEF_PRIMITIVE(map_clear)
 {
-  wrenMapClear(vm, AS_MAP(args[0]));
+  pigeonMapClear(vm, AS_MAP(args[0]));
   RETURN_NULL;
 }
 
@@ -550,7 +550,7 @@ DEF_PRIMITIVE(map_containsKey)
 {
   if (!validateKey(vm, args[1])) return false;
 
-  RETURN_BOOL(!IS_UNDEFINED(wrenMapGet(vm, AS_MAP(args[0]), args[1])));
+  RETURN_BOOL(!IS_UNDEFINED(pigeonMapGet(vm, AS_MAP(args[0]), args[1])));
 }
 
 DEF_PRIMITIVE(map_count)
@@ -598,7 +598,7 @@ DEF_PRIMITIVE(map_remove)
 {
   if (!validateKey(vm, args[1])) return false;
 
-  RETURN_VAL(wrenMapRemoveKey(vm, AS_MAP(args[0]), args[1]));
+  RETURN_VAL(pigeonMapRemoveKey(vm, AS_MAP(args[0]), args[1]));
 }
 
 DEF_PRIMITIVE(map_keyIteratorValue)
@@ -690,7 +690,7 @@ DEF_PRIMITIVE(num_fromString)
     }
 
 DEF_NUM_CONSTANT(infinity, INFINITY)
-DEF_NUM_CONSTANT(nan,      WREN_DOUBLE_NAN)
+DEF_NUM_CONSTANT(nan,      PIGEON_DOUBLE_NAN)
 DEF_NUM_CONSTANT(pi,       3.14159265358979323846264338327950288)
 DEF_NUM_CONSTANT(tau,      6.28318530717958647692528676655900577)
 
@@ -787,7 +787,7 @@ DEF_PRIMITIVE(num_dotDot)
 
   double from = AS_NUM(args[0]);
   double to = AS_NUM(args[1]);
-  RETURN_VAL(wrenNewRange(vm, from, to, true));
+  RETURN_VAL(pigeonNewRange(vm, from, to, true));
 }
 
 DEF_PRIMITIVE(num_dotDotDot)
@@ -796,7 +796,7 @@ DEF_PRIMITIVE(num_dotDotDot)
 
   double from = AS_NUM(args[0]);
   double to = AS_NUM(args[1]);
-  RETURN_VAL(wrenNewRange(vm, from, to, false));
+  RETURN_VAL(pigeonNewRange(vm, from, to, false));
 }
 
 DEF_PRIMITIVE(num_atan2)
@@ -885,7 +885,7 @@ DEF_PRIMITIVE(num_sign)
 
 DEF_PRIMITIVE(num_toString)
 {
-  RETURN_VAL(wrenNumToString(vm, AS_NUM(args[0])));
+  RETURN_VAL(pigeonNumToString(vm, AS_NUM(args[0])));
 }
 
 DEF_PRIMITIVE(num_truncate)
@@ -897,7 +897,7 @@ DEF_PRIMITIVE(num_truncate)
 
 DEF_PRIMITIVE(object_same)
 {
-  RETURN_BOOL(wrenValuesEqual(args[1], args[2]));
+  RETURN_BOOL(pigeonValuesEqual(args[1], args[2]));
 }
 
 DEF_PRIMITIVE(object_not)
@@ -907,12 +907,12 @@ DEF_PRIMITIVE(object_not)
 
 DEF_PRIMITIVE(object_eqeq)
 {
-  RETURN_BOOL(wrenValuesEqual(args[0], args[1]));
+  RETURN_BOOL(pigeonValuesEqual(args[0], args[1]));
 }
 
 DEF_PRIMITIVE(object_bangeq)
 {
-  RETURN_BOOL(!wrenValuesEqual(args[0], args[1]));
+  RETURN_BOOL(!pigeonValuesEqual(args[0], args[1]));
 }
 
 DEF_PRIMITIVE(object_is)
@@ -922,7 +922,7 @@ DEF_PRIMITIVE(object_is)
     RETURN_ERROR("Right operand must be a class.");
   }
 
-  ObjClass *classObj = wrenGetClass(vm, args[0]);
+  ObjClass *classObj = pigeonGetClass(vm, args[0]);
   ObjClass *baseClassObj = AS_CLASS(args[1]);
 
   // Walk the superclass chain looking for the class.
@@ -941,12 +941,12 @@ DEF_PRIMITIVE(object_toString)
 {
   Obj* obj = AS_OBJ(args[0]);
   Value name = OBJ_VAL(obj->classObj->name);
-  RETURN_VAL(wrenStringFormat(vm, "instance of @", name));
+  RETURN_VAL(pigeonStringFormat(vm, "instance of @", name));
 }
 
 DEF_PRIMITIVE(object_type)
 {
-  RETURN_OBJ(wrenGetClass(vm, args[0]));
+  RETURN_OBJ(pigeonGetClass(vm, args[0]));
 }
 
 DEF_PRIMITIVE(range_from)
@@ -1022,7 +1022,7 @@ DEF_PRIMITIVE(range_iteratorValue)
   ObjRange* range = AS_RANGE(args[0]);
 
   if (!IS_NUM(args[1])) {
-    vm->fiber->error = wrenStringFormat(vm, "Iterator must be a number.");
+    vm->fiber->error = pigeonStringFormat(vm, "Iterator must be a number.");
     return false;
   }
 
@@ -1048,17 +1048,17 @@ DEF_PRIMITIVE(range_toString)
 {
   ObjRange* range = AS_RANGE(args[0]);
 
-  Value from = wrenNumToString(vm, range->from);
-  wrenPushRoot(vm, AS_OBJ(from));
+  Value from = pigeonNumToString(vm, range->from);
+  pigeonPushRoot(vm, AS_OBJ(from));
 
-  Value to = wrenNumToString(vm, range->to);
-  wrenPushRoot(vm, AS_OBJ(to));
+  Value to = pigeonNumToString(vm, range->to);
+  pigeonPushRoot(vm, AS_OBJ(to));
 
-  Value result = wrenStringFormat(vm, "@$@", from,
+  Value result = pigeonStringFormat(vm, "@$@", from,
                                   range->isInclusive ? ".." : "...", to);
 
-  wrenPopRoot(vm);
-  wrenPopRoot(vm);
+  pigeonPopRoot(vm);
+  pigeonPopRoot(vm);
   RETURN_VAL(result);
 }
 
@@ -1076,7 +1076,7 @@ DEF_PRIMITIVE(string_fromCodePoint)
     RETURN_ERROR("Code point cannot be greater than 0x10ffff.");
   }
 
-  RETURN_VAL(wrenStringFromCodePoint(vm, codePoint));
+  RETURN_VAL(pigeonStringFromCodePoint(vm, codePoint));
 }
 
 DEF_PRIMITIVE(string_fromByte)
@@ -1091,7 +1091,7 @@ DEF_PRIMITIVE(string_fromByte)
   {
     RETURN_ERROR("Byte cannot be greater than 0xff.");
   }
-  RETURN_VAL(wrenStringFromByte(vm, (uint8_t) byte));
+  RETURN_VAL(pigeonStringFromByte(vm, (uint8_t) byte));
 }
 
 DEF_PRIMITIVE(string_byteAt)
@@ -1121,7 +1121,7 @@ DEF_PRIMITIVE(string_codePointAt)
   if ((bytes[index] & 0xc0) == 0x80) RETURN_NUM(-1);
 
   // Decode the UTF-8 sequence.
-  RETURN_NUM(wrenUtf8Decode((uint8_t*)string->value + index,
+  RETURN_NUM(pigeonUtf8Decode((uint8_t*)string->value + index,
                             string->length - index));
 }
 
@@ -1132,7 +1132,7 @@ DEF_PRIMITIVE(string_contains)
   ObjString* string = AS_STRING(args[0]);
   ObjString* search = AS_STRING(args[1]);
 
-  RETURN_BOOL(wrenStringFind(string, search, 0) != UINT32_MAX);
+  RETURN_BOOL(pigeonStringFind(string, search, 0) != UINT32_MAX);
 }
 
 DEF_PRIMITIVE(string_endsWith)
@@ -1156,7 +1156,7 @@ DEF_PRIMITIVE(string_indexOf1)
   ObjString* string = AS_STRING(args[0]);
   ObjString* search = AS_STRING(args[1]);
 
-  uint32_t index = wrenStringFind(string, search, 0);
+  uint32_t index = pigeonStringFind(string, search, 0);
   RETURN_NUM(index == UINT32_MAX ? -1 : (int)index);
 }
 
@@ -1169,7 +1169,7 @@ DEF_PRIMITIVE(string_indexOf2)
   uint32_t start = validateIndex(vm, args[2], string->length, "Start");
   if (start == UINT32_MAX) return false;
   
-  uint32_t index = wrenStringFind(string, search, start);
+  uint32_t index = pigeonStringFind(string, search, start);
   RETURN_NUM(index == UINT32_MAX ? -1 : (int)index);
 }
 
@@ -1235,16 +1235,16 @@ DEF_PRIMITIVE(string_iteratorValue)
   if (!validateInt(vm, args[1], "Iterator")) return false;
   double iterVal = AS_NUM(args[1]);
   if (iterVal < 1) {
-    vm->fiber->error = wrenStringFormat(vm, "Iterator out of bounds.");
+    vm->fiber->error = pigeonStringFormat(vm, "Iterator out of bounds.");
     return false;
   }
   uint32_t index = (uint32_t)(iterVal - 1);
   if (index >= string->length) {
-    vm->fiber->error = wrenStringFormat(vm, "Iterator out of bounds.");
+    vm->fiber->error = pigeonStringFormat(vm, "Iterator out of bounds.");
     return false;
   }
 
-  RETURN_VAL(wrenStringCodePointAt(vm, string, index));
+  RETURN_VAL(pigeonStringCodePointAt(vm, string, index));
 }
 
 DEF_PRIMITIVE(string_startsWith)
@@ -1263,7 +1263,7 @@ DEF_PRIMITIVE(string_startsWith)
 DEF_PRIMITIVE(string_plus)
 {
   if (!validateString(vm, args[1], "Right operand")) return false;
-  RETURN_VAL(wrenStringFormat(vm, "@@", args[0], args[1]));
+  RETURN_VAL(pigeonStringFormat(vm, "@@", args[0], args[1]));
 }
 
 DEF_PRIMITIVE(string_subscript)
@@ -1275,7 +1275,7 @@ DEF_PRIMITIVE(string_subscript)
     int index = validateIndex(vm, args[1], string->length, "Subscript");
     if (index == -1) return false;
 
-    RETURN_VAL(wrenStringCodePointAt(vm, string, index));
+    RETURN_VAL(pigeonStringCodePointAt(vm, string, index));
   }
 
   if (!IS_RANGE(args[1]))
@@ -1288,7 +1288,7 @@ DEF_PRIMITIVE(string_subscript)
   int start = calculateRange(vm, AS_RANGE(args[1]), &count, &step);
   if (start == -1) return false;
 
-  RETURN_VAL(wrenNewStringFromRange(vm, string, start, count, step));
+  RETURN_VAL(pigeonNewStringFromRange(vm, string, start, count, step));
 }
 
 // Length-aware lexicographic compare. Wren strings are 8-bit clean and may
@@ -1339,7 +1339,7 @@ DEF_PRIMITIVE(system_clock)
 
 DEF_PRIMITIVE(system_gc)
 {
-  wrenCollectGarbage(vm);
+  pigeonCollectGarbage(vm);
   RETURN_NULL;
 }
 
@@ -1399,7 +1399,7 @@ static const char* inspectMethodType(MethodType t)
 }
 
 // Build a methods Map from a class's method table; isStaticClass marks all entries as static.
-static void inspectFillMethods(WrenVM* vm, ObjMap* methods, ObjClass* cls, bool isStatic)
+static void inspectFillMethods(PigeonVM* vm, ObjMap* methods, ObjClass* cls, bool isStatic)
 {
   SymbolTable* symbols = &vm->methodNames;
   for (int i = 0; i < cls->methods.count && i < symbols->data.count; i++) {
@@ -1409,20 +1409,20 @@ static void inspectFillMethods(WrenVM* vm, ObjMap* methods, ObjClass* cls, bool 
     int arity; bool isGetter, isSetter;
     inspectParseSignature(sigStr->value, sigStr->length, &arity, &isGetter, &isSetter);
 
-    ObjMap* info = wrenNewMap(vm);
-    wrenPushRoot(vm, (Obj*)info);
-    wrenMapSet(vm, info, OBJ_VAL(wrenNewString(vm, "arity")),    NUM_VAL(arity));
-    wrenMapSet(vm, info, OBJ_VAL(wrenNewString(vm, "isGetter")), BOOL_VAL(isGetter));
-    wrenMapSet(vm, info, OBJ_VAL(wrenNewString(vm, "isSetter")), BOOL_VAL(isSetter));
-    wrenMapSet(vm, info, OBJ_VAL(wrenNewString(vm, "isStatic")), BOOL_VAL(isStatic));
-    wrenMapSet(vm, info, OBJ_VAL(wrenNewString(vm, "type")),
-               OBJ_VAL(wrenNewString(vm, inspectMethodType(m->type))));
-    wrenMapSet(vm, methods, OBJ_VAL(sigStr), OBJ_VAL(info));
-    wrenPopRoot(vm);
+    ObjMap* info = pigeonNewMap(vm);
+    pigeonPushRoot(vm, (Obj*)info);
+    pigeonMapSet(vm, info, OBJ_VAL(pigeonNewString(vm, "arity")),    NUM_VAL(arity));
+    pigeonMapSet(vm, info, OBJ_VAL(pigeonNewString(vm, "isGetter")), BOOL_VAL(isGetter));
+    pigeonMapSet(vm, info, OBJ_VAL(pigeonNewString(vm, "isSetter")), BOOL_VAL(isSetter));
+    pigeonMapSet(vm, info, OBJ_VAL(pigeonNewString(vm, "isStatic")), BOOL_VAL(isStatic));
+    pigeonMapSet(vm, info, OBJ_VAL(pigeonNewString(vm, "type")),
+               OBJ_VAL(pigeonNewString(vm, inspectMethodType(m->type))));
+    pigeonMapSet(vm, methods, OBJ_VAL(sigStr), OBJ_VAL(info));
+    pigeonPopRoot(vm);
   }
 }
 
-static const char* inspectTypeName(WrenVM* vm, Value val)
+static const char* inspectTypeName(PigeonVM* vm, Value val)
 {
   if (IS_BOOL(val))     return "Bool";
   if (IS_NULL(val))     return "Null";
@@ -1439,7 +1439,7 @@ static const char* inspectTypeName(WrenVM* vm, Value val)
   return "unknown";
 }
 
-static ObjClass* inspectClassOf(WrenVM* vm, Value val)
+static ObjClass* inspectClassOf(PigeonVM* vm, Value val)
 {
   if (IS_BOOL(val))              return vm->boolClass;
   if (IS_NULL(val))              return vm->nullClass;
@@ -1463,27 +1463,27 @@ DEF_PRIMITIVE(system_inspect)
   bool isClass = IS_CLASS(val);
   ObjClass* cls = inspectClassOf(vm, val);
 
-  ObjMap* result = wrenNewMap(vm);
-  wrenPushRoot(vm, (Obj*)result);
+  ObjMap* result = pigeonNewMap(vm);
+  pigeonPushRoot(vm, (Obj*)result);
 
   // "type" — the Wren type name of this value
-  wrenMapSet(vm, result, OBJ_VAL(wrenNewString(vm, "type")),
-             OBJ_VAL(wrenNewString(vm, inspectTypeName(vm, val))));
+  pigeonMapSet(vm, result, OBJ_VAL(pigeonNewString(vm, "type")),
+             OBJ_VAL(pigeonNewString(vm, inspectTypeName(vm, val))));
 
   // "className" — name of the class (for an instance, the class it belongs to;
   //               for a Class value, the class's own name)
   const char* className = cls ? cls->name->value : "unknown";
-  wrenMapSet(vm, result, OBJ_VAL(wrenNewString(vm, "className")),
-             OBJ_VAL(wrenNewString(vm, className)));
+  pigeonMapSet(vm, result, OBJ_VAL(pigeonNewString(vm, "className")),
+             OBJ_VAL(pigeonNewString(vm, className)));
 
   // "isClass" — true when val itself is a Class object
-  wrenMapSet(vm, result, OBJ_VAL(wrenNewString(vm, "isClass")),
+  pigeonMapSet(vm, result, OBJ_VAL(pigeonNewString(vm, "isClass")),
              BOOL_VAL(isClass));
 
   // "methods" — Map of signature -> { arity, isGetter, isSetter, isStatic, type }
-  ObjMap* methods = wrenNewMap(vm);
-  wrenPushRoot(vm, (Obj*)methods);
-  wrenMapSet(vm, result, OBJ_VAL(wrenNewString(vm, "methods")), OBJ_VAL(methods));
+  ObjMap* methods = pigeonNewMap(vm);
+  pigeonPushRoot(vm, (Obj*)methods);
+  pigeonMapSet(vm, result, OBJ_VAL(pigeonNewString(vm, "methods")), OBJ_VAL(methods));
 
   if (cls != NULL) {
     if (isClass) {
@@ -1497,8 +1497,8 @@ DEF_PRIMITIVE(system_inspect)
     }
   }
 
-  wrenPopRoot(vm); // methods
-  wrenPopRoot(vm); // result
+  pigeonPopRoot(vm); // methods
+  pigeonPopRoot(vm); // result
 
   RETURN_OBJ(result);
 }
@@ -1506,37 +1506,37 @@ DEF_PRIMITIVE(system_inspect)
 // Generator class implementation using Suspenders coroutines + channels.
 
 // Allocator for Generator foreign class.
-static void generatorAllocate(WrenVM* vm)
+static void generatorAllocate(PigeonVM* vm)
 {
-  GeneratorData* gd = (GeneratorData*)wrenSetSlotNewForeign(vm, 0, 0,
+  GeneratorData* gd = (GeneratorData*)pigeonSetSlotNewForeign(vm, 0, 0,
                                                             sizeof(GeneratorData));
   gd->it = NULL;
   gd->iterable = NULL_VAL;
 }
 
 // Finalizer for Generator objects (called by GC). Must not use the VM.
-// Iterator structs are freed by wrenIteratorReleaseAll on interpret exit.
+// Iterator structs are freed by pigeonIteratorReleaseAll on interpret exit.
 static void generatorFinalize(void* data)
 {
   GeneratorData* gd = (GeneratorData*)data;
   if (gd->it != NULL)
   {
-    wrenIteratorShutdown(gd->it);
+    pigeonIteratorShutdown(gd->it);
     gd->it = NULL;
   }
 }
 
 // Foreign method: Generator.init_(obj) — creates the iterator producer.
-static void generatorInit(WrenVM* vm)
+static void generatorInit(PigeonVM* vm)
 {
   ObjForeign* foreign = AS_FOREIGN(vm->apiStack[0]);
   GeneratorData* gd = (GeneratorData*)foreign->data;
   Value iterable = vm->apiStack[1];
 
-  WrenIterator* it = NULL;
-  int result = wrenIteratorCreate(vm, iterable, &it);
+  PigeonIterator* it = NULL;
+  int result = pigeonIteratorCreate(vm, iterable, &it);
   if (result != 0 || it == NULL) {
-    vm->fiber->error = wrenStringFormat(vm, "Failed to create iterator for iterable.");
+    vm->fiber->error = pigeonStringFormat(vm, "Failed to create iterator for iterable.");
     return;
   }
 
@@ -1545,7 +1545,7 @@ static void generatorInit(WrenVM* vm)
 }
 
 // Foreign method: Generator.next()
-static void generatorNext(WrenVM* vm)
+static void generatorNext(PigeonVM* vm)
 {
   ObjForeign* foreign = AS_FOREIGN(vm->apiStack[0]);
   GeneratorData* gd = (GeneratorData*)foreign->data;
@@ -1555,20 +1555,20 @@ static void generatorNext(WrenVM* vm)
     return;
   }
 
-  WrenValue nextVal;
-  int hasNext = wrenIteratorNext(gd->it, &nextVal);
+  PigeonValue nextVal;
+  int hasNext = pigeonIteratorNext(gd->it, &nextVal);
 
   if (hasNext) {
     vm->apiStack[0] = nextVal;
   } else {
-    wrenIteratorRelease(vm, gd->it);
+    pigeonIteratorRelease(vm, gd->it);
     gd->it = NULL;
     vm->apiStack[0] = NULL_VAL;
   }
 }
 
 // Binds foreign methods for the core module
-WrenForeignMethodFn wrenCoreBindForeignMethod(const char* module, const char* className,
+PigeonForeignMethodFn pigeonCoreBindForeignMethod(const char* module, const char* className,
                                               bool isStatic, const char* signature)
 {
     if (module != NULL && strcmp(module, "core") == 0) {
@@ -1581,9 +1581,9 @@ WrenForeignMethodFn wrenCoreBindForeignMethod(const char* module, const char* cl
 }
 
 // Binds foreign class allocate/finalize for the core module
-WrenForeignClassMethods wrenCoreBindForeignClass(WrenVM* WREN_MAYBE_UNUSED vm, const char* className)
+PigeonForeignClassMethods pigeonCoreBindForeignClass(PigeonVM* PIGEON_MAYBE_UNUSED vm, const char* className)
 {
-    WrenForeignClassMethods methods;
+    PigeonForeignClassMethods methods;
     methods.allocate = NULL;
     methods.finalize = NULL;
 
@@ -1596,27 +1596,27 @@ WrenForeignClassMethods wrenCoreBindForeignClass(WrenVM* WREN_MAYBE_UNUSED vm, c
 }
 
 // Creates either the Object or Class class in the core module with [name].
-static ObjClass* defineClass(WrenVM* vm, ObjModule* module, const char* name)
+static ObjClass* defineClass(PigeonVM* vm, ObjModule* module, const char* name)
 {
-  ObjString* nameString = AS_STRING(wrenNewString(vm, name));
-  wrenPushRoot(vm, (Obj*)nameString);
+  ObjString* nameString = AS_STRING(pigeonNewString(vm, name));
+  pigeonPushRoot(vm, (Obj*)nameString);
 
-  ObjClass* classObj = wrenNewSingleClass(vm, 0, nameString);
+  ObjClass* classObj = pigeonNewSingleClass(vm, 0, nameString);
 
-  wrenDefineVariable(vm, module, name, nameString->length, OBJ_VAL(classObj), NULL);
+  pigeonDefineVariable(vm, module, name, nameString->length, OBJ_VAL(classObj), NULL);
 
-  wrenPopRoot(vm);
+  pigeonPopRoot(vm);
   return classObj;
 }
 
-void wrenInitializeCore(WrenVM* vm)
+void pigeonInitializeCore(PigeonVM* vm)
 {
-  ObjModule* coreModule = wrenNewModule(vm, NULL);
-  wrenPushRoot(vm, (Obj*)coreModule);
+  ObjModule* coreModule = pigeonNewModule(vm, NULL);
+  pigeonPushRoot(vm, (Obj*)coreModule);
   
   // The core module's key is null in the module map.
-  wrenMapSet(vm, vm->modules, NULL_VAL, OBJ_VAL(coreModule));
-  wrenPopRoot(vm); // coreModule.
+  pigeonMapSet(vm, vm->modules, NULL_VAL, OBJ_VAL(coreModule));
+  pigeonPopRoot(vm); // coreModule.
 
   // Define the root Object class. This has to be done a little specially
   // because it has no superclass.
@@ -1630,7 +1630,7 @@ void wrenInitializeCore(WrenVM* vm)
 
   // Now we can define Class, which is a subclass of Object.
   vm->classClass = defineClass(vm, coreModule, "Class");
-  wrenBindSuperclass(vm, vm->classClass, vm->objectClass);
+  pigeonBindSuperclass(vm, vm->classClass, vm->objectClass);
   PRIMITIVE(vm->classClass, "name", class_name);
   PRIMITIVE(vm->classClass, "supertype", class_supertype);
   PRIMITIVE(vm->classClass, "toString", class_toString);
@@ -1646,7 +1646,7 @@ void wrenInitializeCore(WrenVM* vm)
 
   // Do this after wiring up the metaclasses so objectMetaclass doesn't get
   // collected.
-  wrenBindSuperclass(vm, objectMetaclass, vm->classClass);
+  pigeonBindSuperclass(vm, objectMetaclass, vm->classClass);
 
   PRIMITIVE(objectMetaclass, "same(_,_)", object_same);
 
@@ -1673,13 +1673,13 @@ void wrenInitializeCore(WrenVM* vm)
   //   '---------'   '-------------------'            -'
 
   // The rest of the classes can now be defined normally.
-  wrenInterpret(vm, NULL, coreModuleSource);
+  pigeonInterpret(vm, NULL, coreModuleSource);
 
-  vm->boolClass = AS_CLASS(wrenFindVariable(vm, coreModule, "Bool"));
+  vm->boolClass = AS_CLASS(pigeonFindVariable(vm, coreModule, "Bool"));
   PRIMITIVE(vm->boolClass, "toString", bool_toString);
   PRIMITIVE(vm->boolClass, "!", bool_not);
 
-  vm->fiberClass = AS_CLASS(wrenFindVariable(vm, coreModule, "Fiber"));
+  vm->fiberClass = AS_CLASS(pigeonFindVariable(vm, coreModule, "Fiber"));
   PRIMITIVE(vm->fiberClass->obj.classObj, "new(_)", fiber_new);
   PRIMITIVE(vm->fiberClass->obj.classObj, "abort(_)", fiber_abort);
   PRIMITIVE(vm->fiberClass->obj.classObj, "current", fiber_current);
@@ -1696,7 +1696,7 @@ void wrenInitializeCore(WrenVM* vm)
   PRIMITIVE(vm->fiberClass, "try()", fiber_try);
   PRIMITIVE(vm->fiberClass, "try(_)", fiber_try1);
 
-  vm->fnClass = AS_CLASS(wrenFindVariable(vm, coreModule, "Fn"));
+  vm->fnClass = AS_CLASS(pigeonFindVariable(vm, coreModule, "Fn"));
 
   PRIMITIVE(vm->fnClass, "arity", fn_arity);
 
@@ -1720,11 +1720,11 @@ void wrenInitializeCore(WrenVM* vm)
   
   PRIMITIVE(vm->fnClass, "toString", fn_toString);
 
-  vm->nullClass = AS_CLASS(wrenFindVariable(vm, coreModule, "Null"));
+  vm->nullClass = AS_CLASS(pigeonFindVariable(vm, coreModule, "Null"));
   PRIMITIVE(vm->nullClass, "!", null_not);
   PRIMITIVE(vm->nullClass, "toString", null_toString);
 
-  vm->numClass = AS_CLASS(wrenFindVariable(vm, coreModule, "Num"));
+  vm->numClass = AS_CLASS(pigeonFindVariable(vm, coreModule, "Num"));
   PRIMITIVE(vm->numClass->obj.classObj, "fromString(_)", num_fromString);
   PRIMITIVE(vm->numClass->obj.classObj, "infinity", num_infinity);
   PRIMITIVE(vm->numClass->obj.classObj, "nan", num_nan);
@@ -1785,7 +1785,7 @@ void wrenInitializeCore(WrenVM* vm)
   PRIMITIVE(vm->numClass, "==(_)", num_eqeq);
   PRIMITIVE(vm->numClass, "!=(_)", num_bangeq);
 
-  vm->stringClass = AS_CLASS(wrenFindVariable(vm, coreModule, "String"));
+  vm->stringClass = AS_CLASS(pigeonFindVariable(vm, coreModule, "String"));
   PRIMITIVE(vm->stringClass->obj.classObj, "fromCodePoint(_)", string_fromCodePoint);
   PRIMITIVE(vm->stringClass->obj.classObj, "fromByte(_)", string_fromByte);
   PRIMITIVE(vm->stringClass, "+(_)", string_plus);
@@ -1807,7 +1807,7 @@ void wrenInitializeCore(WrenVM* vm)
   PRIMITIVE(vm->stringClass, "startsWith(_)", string_startsWith);
   PRIMITIVE(vm->stringClass, "toString", string_toString);
 
-  vm->listClass = AS_CLASS(wrenFindVariable(vm, coreModule, "List"));
+  vm->listClass = AS_CLASS(pigeonFindVariable(vm, coreModule, "List"));
   PRIMITIVE(vm->listClass->obj.classObj, "filled(_,_)", list_filled);
   PRIMITIVE(vm->listClass->obj.classObj, "new()", list_new);
   PRIMITIVE(vm->listClass, "[_]", list_subscript);
@@ -1824,7 +1824,7 @@ void wrenInitializeCore(WrenVM* vm)
   PRIMITIVE(vm->listClass, "indexOf(_)", list_indexOf);
   PRIMITIVE(vm->listClass, "swap(_,_)", list_swap);
 
-  vm->mapClass = AS_CLASS(wrenFindVariable(vm, coreModule, "Map"));
+  vm->mapClass = AS_CLASS(pigeonFindVariable(vm, coreModule, "Map"));
   PRIMITIVE(vm->mapClass->obj.classObj, "new()", map_new);
   PRIMITIVE(vm->mapClass, "[_]", map_subscript);
   PRIMITIVE(vm->mapClass, "[_]=(_)", map_subscriptSetter);
@@ -1837,7 +1837,7 @@ void wrenInitializeCore(WrenVM* vm)
   PRIMITIVE(vm->mapClass, "keyIteratorValue_(_)", map_keyIteratorValue);
   PRIMITIVE(vm->mapClass, "valueIteratorValue_(_)", map_valueIteratorValue);
 
-  vm->rangeClass = AS_CLASS(wrenFindVariable(vm, coreModule, "Range"));
+  vm->rangeClass = AS_CLASS(pigeonFindVariable(vm, coreModule, "Range"));
   PRIMITIVE(vm->rangeClass, "from", range_from);
   PRIMITIVE(vm->rangeClass, "to", range_to);
   PRIMITIVE(vm->rangeClass, "min", range_min);
@@ -1848,10 +1848,10 @@ void wrenInitializeCore(WrenVM* vm)
   PRIMITIVE(vm->rangeClass, "toString", range_toString);
 
   // Generator is a foreign class — its allocate/finalize/methods are bound
-  // via wrenCoreBindForeignClass and wrenCoreBindForeignMethod.
-  vm->generatorClass = AS_CLASS(wrenFindVariable(vm, coreModule, "Generator"));
+  // via pigeonCoreBindForeignClass and pigeonCoreBindForeignMethod.
+  vm->generatorClass = AS_CLASS(pigeonFindVariable(vm, coreModule, "Generator"));
 
-  ObjClass* systemClass = AS_CLASS(wrenFindVariable(vm, coreModule, "System"));
+  ObjClass* systemClass = AS_CLASS(pigeonFindVariable(vm, coreModule, "System"));
   PRIMITIVE(systemClass->obj.classObj, "clock", system_clock);
   PRIMITIVE(systemClass->obj.classObj, "gc()", system_gc);
   PRIMITIVE(systemClass->obj.classObj, "writeString_(_)", system_writeString);

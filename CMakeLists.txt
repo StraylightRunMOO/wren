@@ -114,7 +114,7 @@ endif()
 # Build options
 option(BUILD_SHARED_LIBS "Build shared library instead of static" OFF)
 option(BUILD_TESTS "Build test executable" ON)
-option(WREN_NAN_TAGGING "Enable NaN tagging optimization" ON)
+option(PIGEON_NAN_TAGGING "Enable NaN tagging optimization" ON)
 
 # Output directories
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -235,7 +235,7 @@ target_include_directories(pigeon
         ${SUSPENDERS_INCLUDE_DIR}
         ${SWIZZ_INCLUDE_DIR}
 )
-target_compile_definitions(pigeon PRIVATE PIGEON_NO_WREN_DEPRECATION)
+
 if(LIBURING_FOUND)
     target_include_directories(pigeon PRIVATE ${LIBURING_INCLUDE_DIRS})
 endif()
@@ -273,16 +273,16 @@ target_include_directories(pigeon_shared
         ${SUSPENDERS_INCLUDE_DIR}
         ${SWIZZ_INCLUDE_DIR}
 )
-target_compile_definitions(pigeon_shared PRIVATE PIGEON_NO_WREN_DEPRECATION)
+
 if(LIBURING_FOUND)
     target_include_directories(pigeon_shared PRIVATE ${LIBURING_INCLUDE_DIRS})
 endif()
 
 
 # Compiler definitions
-if(NOT WREN_NAN_TAGGING)
-    target_compile_definitions(pigeon PRIVATE WREN_NAN_TAGGING=0)
-    target_compile_definitions(pigeon_shared PRIVATE WREN_NAN_TAGGING=0)
+if(NOT PIGEON_NAN_TAGGING)
+    target_compile_definitions(pigeon PRIVATE PIGEON_NAN_TAGGING=0)
+    target_compile_definitions(pigeon_shared PRIVATE PIGEON_NAN_TAGGING=0)
 endif()
 
 # Platform-specific settings
@@ -331,7 +331,6 @@ if(BUILD_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/std
     )
 
-    target_compile_definitions(pigeon_test PRIVATE PIGEON_NO_WREN_DEPRECATION)
     target_link_libraries(pigeon_test PRIVATE pigeon)
 
     # Add test target

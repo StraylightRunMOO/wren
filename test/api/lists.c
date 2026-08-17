@@ -2,32 +2,32 @@
 
 #include "lists.h"
 
-static void newList(WrenVM* vm)
+static void newList(PigeonVM* vm)
 {
-  wrenSetSlotNewList(vm, 0);
+  pigeonSetSlotNewList(vm, 0);
 }
 
 // Helper function to store a double in a slot then insert it into the list at
 // slot zero.
-static void insertNumber(WrenVM* vm, int index, double value)
+static void insertNumber(PigeonVM* vm, int index, double value)
 {
-  wrenSetSlotDouble(vm, 1, value);
-  wrenInsertInList(vm, 0, index, 1);
+  pigeonSetSlotDouble(vm, 1, value);
+  pigeonInsertInList(vm, 0, index, 1);
 }
 
 // Helper function to append a double in a slot then insert it into the list at
 // slot zero.
-static void appendNumber(WrenVM* vm, double value)
+static void appendNumber(PigeonVM* vm, double value)
 {
-  wrenSetSlotDouble(vm, 1, value);
-  wrenInsertInList(vm, 0, -1, 1);
+  pigeonSetSlotDouble(vm, 1, value);
+  pigeonInsertInList(vm, 0, -1, 1);
 }
 
-static void insert(WrenVM* vm)
+static void insert(PigeonVM* vm)
 {
-  wrenSetSlotNewList(vm, 0);
+  pigeonSetSlotNewList(vm, 0);
 
-  wrenEnsureSlots(vm, 2);
+  pigeonEnsureSlots(vm, 2);
 
   // Appending.
   insertNumber(vm, 0, 1.0);
@@ -45,19 +45,19 @@ static void insert(WrenVM* vm)
   insertNumber(vm, -3, 9.0);
 }
 
-static void get(WrenVM* vm)
+static void get(PigeonVM* vm)
 {
   int listSlot = 1;
-  int index = (int)wrenGetSlotDouble(vm, 2);
+  int index = (int)pigeonGetSlotDouble(vm, 2);
 
-  wrenGetListElement(vm, listSlot, index, 0);
+  pigeonGetListElement(vm, listSlot, index, 0);
 }
 
-static void set(WrenVM* vm)
+static void set(PigeonVM* vm)
 {
-  wrenSetSlotNewList(vm, 0);
+  pigeonSetSlotNewList(vm, 0);
 
-  wrenEnsureSlots(vm, 2);
+  pigeonEnsureSlots(vm, 2);
 
   appendNumber(vm, 1.0);
   appendNumber(vm, 2.0);
@@ -65,15 +65,15 @@ static void set(WrenVM* vm)
   appendNumber(vm, 4.0);
   
   //list[2] = 33
-  wrenSetSlotDouble(vm, 1, 33);
-  wrenSetListElement(vm, 0, 2, 1);
+  pigeonSetSlotDouble(vm, 1, 33);
+  pigeonSetListElement(vm, 0, 2, 1);
 
   //list[-1] = 44
-  wrenSetSlotDouble(vm, 1, 44);
-  wrenSetListElement(vm, 0, -1, 1);
+  pigeonSetSlotDouble(vm, 1, 44);
+  pigeonSetListElement(vm, 0, -1, 1);
 }
 
-WrenForeignMethodFn listsBindMethod(const char* signature)
+PigeonForeignMethodFn listsBindMethod(const char* signature)
 {
   if (strcmp(signature, "static Lists.newList()") == 0) return newList;
   if (strcmp(signature, "static Lists.insert()") == 0) return insert;

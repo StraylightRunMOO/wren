@@ -1,7 +1,7 @@
-#ifndef wren_compiler_h
-#define wren_compiler_h
+#ifndef pigeon_compiler_h
+#define pigeon_compiler_h
 
-#include "wren.h"
+#include "pigeon.h"
 #include "wren_value.h"
 
 typedef struct sCompiler Compiler;
@@ -32,7 +32,7 @@ typedef struct sCompiler Compiler;
 //
 // If [printErrors] is `true`, any compile errors are output to stderr.
 // Otherwise, they are silently discarded.
-ObjFn* wrenCompile(WrenVM* vm, ObjModule* module, const char* source,
+ObjFn* pigeonCompile(PigeonVM* vm, ObjModule* module, const char* source,
                    bool isExpression, bool printErrors);
 
 // When a class is defined, its superclass is not known until runtime since
@@ -48,10 +48,10 @@ ObjFn* wrenCompile(WrenVM* vm, ObjModule* module, const char* source,
 //
 // We could handle this dynamically, but that adds overhead. Instead, when a
 // method is bound, we walk the bytecode for the function and patch it up.
-void wrenBindMethodCode(ObjClass* classObj, ObjFn* fn);
+void pigeonBindMethodCode(ObjClass* classObj, ObjFn* fn);
 
 // Reaches all of the heap-allocated objects in use by [compiler] (and all of
 // its parents) so that they are not collected by the GC.
-void wrenMarkCompiler(WrenVM* vm, Compiler* compiler);
+void pigeonMarkCompiler(PigeonVM* vm, Compiler* compiler);
 
 #endif

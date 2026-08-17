@@ -2,20 +2,20 @@
 
 #include "handle.h"
 
-static WrenHandle* handle;
+static PigeonHandle* handle;
 
-static void setValue(WrenVM* vm)
+static void setValue(PigeonVM* vm)
 {
-  handle = wrenGetSlotHandle(vm, 1);
+  handle = pigeonGetSlotHandle(vm, 1);
 }
 
-static void getValue(WrenVM* vm)
+static void getValue(PigeonVM* vm)
 {
-  wrenSetSlotHandle(vm, 0, handle);
-  wrenReleaseHandle(vm, handle);
+  pigeonSetSlotHandle(vm, 0, handle);
+  pigeonReleaseHandle(vm, handle);
 }
 
-WrenForeignMethodFn handleBindMethod(const char* signature)
+PigeonForeignMethodFn handleBindMethod(const char* signature)
 {
   if (strcmp(signature, "static Handle.value=(_)") == 0) return setValue;
   if (strcmp(signature, "static Handle.value") == 0) return getValue;

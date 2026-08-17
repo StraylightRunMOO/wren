@@ -1,5 +1,5 @@
-#include "wren.h"
+#include "pigeon.h"
 
 void resetStackAfterForeignConstructBindClass(
-    const char* className, WrenForeignClassMethods* methods);
-int resetStackAfterForeignConstructRunTests(WrenVM* vm);
+    const char* className, PigeonForeignClassMethods* methods);
+int resetStackAfterForeignConstructRunTests(PigeonVM* vm);

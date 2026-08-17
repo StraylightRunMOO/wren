@@ -5,38 +5,38 @@
 
 static int finalized = 0;
 
-static void apiFinalized(WrenVM* vm)
+static void apiFinalized(PigeonVM* vm)
 {
-  wrenSetSlotDouble(vm, 0, finalized);
+  pigeonSetSlotDouble(vm, 0, finalized);
 }
 
-static void counterAllocate(WrenVM* vm)
+static void counterAllocate(PigeonVM* vm)
 {
-  double* value = (double*)wrenSetSlotNewForeign(vm, 0, 0, sizeof(double));
+  double* value = (double*)pigeonSetSlotNewForeign(vm, 0, 0, sizeof(double));
   *value = 0;
 }
 
-static void counterIncrement(WrenVM* vm)
+static void counterIncrement(PigeonVM* vm)
 {
-  double* value = (double*)wrenGetSlotForeign(vm, 0);
-  double increment = wrenGetSlotDouble(vm, 1);
+  double* value = (double*)pigeonGetSlotForeign(vm, 0);
+  double increment = pigeonGetSlotDouble(vm, 1);
 
   *value += increment;
 }
 
-static void counterValue(WrenVM* vm)
+static void counterValue(PigeonVM* vm)
 {
-  double value = *(double*)wrenGetSlotForeign(vm, 0);
-  wrenSetSlotDouble(vm, 0, value);
+  double value = *(double*)pigeonGetSlotForeign(vm, 0);
+  pigeonSetSlotDouble(vm, 0, value);
 }
 
-static void pointAllocate(WrenVM* vm)
+static void pointAllocate(PigeonVM* vm)
 {
-  double* coordinates = (double*)wrenSetSlotNewForeign(vm, 0, 0, sizeof(double[3]));
+  double* coordinates = (double*)pigeonSetSlotNewForeign(vm, 0, 0, sizeof(double[3]));
 
   // This gets called by both constructors, so sniff the slot count to see
   // which one was invoked.
-  if (wrenGetSlotCount(vm) == 1)
+  if (pigeonGetSlotCount(vm) == 1)
   {
     coordinates[0] = 0.0;
     coordinates[1] = 0.0;
@@ -44,32 +44,32 @@ static void pointAllocate(WrenVM* vm)
   }
   else
   {
-    coordinates[0] = wrenGetSlotDouble(vm, 1);
-    coordinates[1] = wrenGetSlotDouble(vm, 2);
-    coordinates[2] = wrenGetSlotDouble(vm, 3);
+    coordinates[0] = pigeonGetSlotDouble(vm, 1);
+    coordinates[1] = pigeonGetSlotDouble(vm, 2);
+    coordinates[2] = pigeonGetSlotDouble(vm, 3);
   }
 }
 
-static void pointTranslate(WrenVM* vm)
+static void pointTranslate(PigeonVM* vm)
 {
-  double* coordinates = (double*)wrenGetSlotForeign(vm, 0);
-  coordinates[0] += wrenGetSlotDouble(vm, 1);
-  coordinates[1] += wrenGetSlotDouble(vm, 2);
-  coordinates[2] += wrenGetSlotDouble(vm, 3);
+  double* coordinates = (double*)pigeonGetSlotForeign(vm, 0);
+  coordinates[0] += pigeonGetSlotDouble(vm, 1);
+  coordinates[1] += pigeonGetSlotDouble(vm, 2);
+  coordinates[2] += pigeonGetSlotDouble(vm, 3);
 }
 
-static void pointToString(WrenVM* vm)
+static void pointToString(PigeonVM* vm)
 {
-  double* coordinates = (double*)wrenGetSlotForeign(vm, 0);
+  double* coordinates = (double*)pigeonGetSlotForeign(vm, 0);
   char result[100];
   sprintf(result, "(%g, %g, %g)",
       coordinates[0], coordinates[1], coordinates[2]);
-  wrenSetSlotString(vm, 0, result);
+  pigeonSetSlotString(vm, 0, result);
 }
 
-static void resourceAllocate(WrenVM* vm)
+static void resourceAllocate(PigeonVM* vm)
 {
-  int* value = (int*)wrenSetSlotNewForeign(vm, 0, 0, sizeof(int));
+  int* value = (int*)pigeonSetSlotNewForeign(vm, 0, 0, sizeof(int));
   *value = 123;
 }
 
@@ -82,14 +82,14 @@ static void resourceFinalize(void* data)
   finalized++;
 }
 
-static void badClassAllocate(WrenVM* vm)
+static void badClassAllocate(PigeonVM* vm)
 {
-  wrenEnsureSlots(vm, 1);
-  wrenSetSlotString(vm, 0, "Something went wrong");
-  wrenAbortFiber(vm, 0);
+  pigeonEnsureSlots(vm, 1);
+  pigeonSetSlotString(vm, 0, "Something went wrong");
+  pigeonAbortFiber(vm, 0);
 }
 
-WrenForeignMethodFn foreignClassBindMethod(const char* signature)
+PigeonForeignMethodFn foreignClassBindMethod(const char* signature)
 {
   if (strcmp(signature, "static ForeignClass.finalized") == 0) return apiFinalized;
   if (strcmp(signature, "Counter.increment(_)") == 0) return counterIncrement;
@@ -101,7 +101,7 @@ WrenForeignMethodFn foreignClassBindMethod(const char* signature)
 }
 
 void foreignClassBindClass(
-    const char* className, WrenForeignClassMethods* methods)
+    const char* className, PigeonForeignClassMethods* methods)
 {
   if (strcmp(className, "Counter") == 0)
   {

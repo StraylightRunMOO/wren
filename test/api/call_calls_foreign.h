@@ -1,4 +1,4 @@
-#include "wren.h"
+#include "pigeon.h"
 
-WrenForeignMethodFn callCallsForeignBindMethod(const char* signature);
-int callCallsForeignRunTests(WrenVM* vm);
+PigeonForeignMethodFn callCallsForeignBindMethod(const char* signature);
+int callCallsForeignRunTests(PigeonVM* vm);

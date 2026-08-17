@@ -1,14 +1,14 @@
 #ifndef wren_json_h
 #define wren_json_h
 
-#include "wren.h"
+#include "pigeon.h"
 
-const char* wrenJsonSource();
-WrenForeignMethodFn wrenJsonBindForeignMethod(WrenVM* vm,
+const char* pigeonJsonSource();
+PigeonForeignMethodFn pigeonJsonBindForeignMethod(PigeonVM* vm,
                                               const char* className,
                                               bool isStatic,
                                               const char* signature);
-WrenForeignClassMethods wrenJsonBindForeignClass(WrenVM* vm,
+PigeonForeignClassMethods pigeonJsonBindForeignClass(PigeonVM* vm,
                                                  const char* className);
 
 #endif

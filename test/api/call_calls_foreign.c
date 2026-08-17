@@ -1,45 +1,45 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "wren.h"
+#include "pigeon.h"
 
-static void api(WrenVM *vm) {
+static void api(PigeonVM *vm) {
   // Grow the slot array. This should trigger the stack to be moved.
-  wrenEnsureSlots(vm, 10);
-  wrenSetSlotNewList(vm, 0);
+  pigeonEnsureSlots(vm, 10);
+  pigeonSetSlotNewList(vm, 0);
 
   for (int i = 1; i < 10; i++)
   {
-    wrenSetSlotDouble(vm, i, i);
-    wrenInsertInList(vm, 0, -1, i);
+    pigeonSetSlotDouble(vm, i, i);
+    pigeonInsertInList(vm, 0, -1, i);
   }
 }
 
-WrenForeignMethodFn callCallsForeignBindMethod(const char* signature)
+PigeonForeignMethodFn callCallsForeignBindMethod(const char* signature)
 {
   if (strcmp(signature, "static CallCallsForeign.api()") == 0) return api;
 
   return NULL;
 }
 
-int callCallsForeignRunTests(WrenVM* vm)
+int callCallsForeignRunTests(PigeonVM* vm)
 {
-  wrenEnsureSlots(vm, 1);
-  wrenGetVariable(vm, "./test/api/call_calls_foreign", "CallCallsForeign", 0);
-  WrenHandle* apiClass = wrenGetSlotHandle(vm, 0);
-  WrenHandle *call = wrenMakeCallHandle(vm, "call(_)");
+  pigeonEnsureSlots(vm, 1);
+  pigeonGetVariable(vm, "./test/api/call_calls_foreign", "CallCallsForeign", 0);
+  PigeonHandle* apiClass = pigeonGetSlotHandle(vm, 0);
+  PigeonHandle *call = pigeonMakeCallHandle(vm, "call(_)");
 
-  wrenEnsureSlots(vm, 2);
-  wrenSetSlotHandle(vm, 0, apiClass);
-  wrenSetSlotString(vm, 1, "parameter");
+  pigeonEnsureSlots(vm, 2);
+  pigeonSetSlotHandle(vm, 0, apiClass);
+  pigeonSetSlotString(vm, 1, "parameter");
 
-  printf("slots before %d\n", wrenGetSlotCount(vm));
-  wrenCall(vm, call);
+  printf("slots before %d\n", pigeonGetSlotCount(vm));
+  pigeonCall(vm, call);
 
   // We should have a single slot count for the return.
-  printf("slots after %d\n", wrenGetSlotCount(vm));
+  printf("slots after %d\n", pigeonGetSlotCount(vm));
 
-  wrenReleaseHandle(vm, call);
-  wrenReleaseHandle(vm, apiClass);
+  pigeonReleaseHandle(vm, call);
+  pigeonReleaseHandle(vm, apiClass);
   return 0;
 }

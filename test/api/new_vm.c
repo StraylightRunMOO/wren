@@ -2,55 +2,55 @@
 
 #include "new_vm.h"
 
-static void nullConfig(WrenVM* vm)
+static void nullConfig(PigeonVM* vm)
 {
-  WrenVM* otherVM = wrenNewVM(NULL);
+  PigeonVM* otherVM = pigeonNewVM(NULL);
 
   // We should be able to execute code.
-  WrenInterpretResult result = wrenInterpret(otherVM, "main", "1 + 2");
-  wrenSetSlotBool(vm, 0, result == WREN_RESULT_SUCCESS);
+  PigeonInterpretResult result = pigeonInterpret(otherVM, "main", "1 + 2");
+  pigeonSetSlotBool(vm, 0, result == PIGEON_RESULT_SUCCESS);
 
-  wrenFreeVM(otherVM);
+  pigeonFreeVM(otherVM);
 }
 
-static void multipleInterpretCalls(WrenVM* vm)
+static void multipleInterpretCalls(PigeonVM* vm)
 {
-  WrenVM* otherVM = wrenNewVM(NULL);
-  WrenInterpretResult result;
+  PigeonVM* otherVM = pigeonNewVM(NULL);
+  PigeonInterpretResult result;
 
   bool correct = true;
 
   // Handles should be valid across calls into Wren code.
-  WrenHandle* absMethod = wrenMakeCallHandle(otherVM, "abs");
+  PigeonHandle* absMethod = pigeonMakeCallHandle(otherVM, "abs");
 
-  result = wrenInterpret(otherVM, "main", "import \"random\" for Random");
-  correct = correct && (result == WREN_RESULT_SUCCESS);
+  result = pigeonInterpret(otherVM, "main", "import \"random\" for Random");
+  correct = correct && (result == PIGEON_RESULT_SUCCESS);
 
   for (int i = 0; i < 5; i++) {
-    // Calling `wrenEnsureSlots()` before `wrenInterpret()` should not introduce
+    // Calling `pigeonEnsureSlots()` before `pigeonInterpret()` should not introduce
     // problems later.
-    wrenEnsureSlots(otherVM, 2);
+    pigeonEnsureSlots(otherVM, 2);
 
     // Calling a foreign function should succeed.
-    result = wrenInterpret(otherVM, "main", "Random.new(12345)");
-    correct = correct && (result == WREN_RESULT_SUCCESS);
+    result = pigeonInterpret(otherVM, "main", "Random.new(12345)");
+    correct = correct && (result == PIGEON_RESULT_SUCCESS);
 
-    wrenEnsureSlots(otherVM, 2);
-    wrenSetSlotDouble(otherVM, 0, -i);
-    result = wrenCall(otherVM, absMethod);
-    correct = correct && (result == WREN_RESULT_SUCCESS);
+    pigeonEnsureSlots(otherVM, 2);
+    pigeonSetSlotDouble(otherVM, 0, -i);
+    result = pigeonCall(otherVM, absMethod);
+    correct = correct && (result == PIGEON_RESULT_SUCCESS);
 
-    double absValue = wrenGetSlotDouble(otherVM, 0);
+    double absValue = pigeonGetSlotDouble(otherVM, 0);
     correct = correct && (absValue == (double)i);
   }
 
-  wrenSetSlotBool(vm, 0, correct);
+  pigeonSetSlotBool(vm, 0, correct);
 
-  wrenReleaseHandle(otherVM, absMethod);
-  wrenFreeVM(otherVM);
+  pigeonReleaseHandle(otherVM, absMethod);
+  pigeonFreeVM(otherVM);
 }
 
-WrenForeignMethodFn newVMBindMethod(const char* signature)
+PigeonForeignMethodFn newVMBindMethod(const char* signature)
 {
   if (strcmp(signature, "static VM.nullConfig()") == 0) return nullConfig;
   if (strcmp(signature, "static VM.multipleInterpretCalls()") == 0) return multipleInterpretCalls;

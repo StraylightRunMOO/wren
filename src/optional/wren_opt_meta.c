@@ -1,17 +1,17 @@
 #include "wren_opt_meta.h"
 
-#if WREN_OPT_META
+#if PIGEON_OPT_META
 
 #include <string.h>
 
 #include "wren_vm.h"
 #include "wren_opt_meta.wren.inc"
 
-void metaCompile(WrenVM* vm)
+void metaCompile(PigeonVM* vm)
 {
-  const char* source = wrenGetSlotString(vm, 1);
-  bool isExpression = wrenGetSlotBool(vm, 2);
-  bool printErrors = wrenGetSlotBool(vm, 3);
+  const char* source = pigeonGetSlotString(vm, 1);
+  bool isExpression = pigeonGetSlotBool(vm, 2);
+  bool printErrors = pigeonGetSlotBool(vm, 3);
 
   // TODO: Allow passing in module?
   // Look up the module surrounding the callsite. This is brittle. The -2 walks
@@ -22,7 +22,7 @@ void metaCompile(WrenVM* vm)
   ObjFn* fn = currentFiber->frames[currentFiber->numFrames - 2].closure->fn;
   ObjString* module = fn->module->name;
 
-  ObjClosure* closure = wrenCompileSource(vm, module->value, source,
+  ObjClosure* closure = pigeonCompileSource(vm, module->value, source,
                                           isExpression, printErrors);
   
   // Return the result. We can't use the public API for this since we have a
@@ -37,11 +37,11 @@ void metaCompile(WrenVM* vm)
   }
 }
 
-void metaGetModuleVariables(WrenVM* vm)
+void metaGetModuleVariables(PigeonVM* vm)
 {
-  wrenEnsureSlots(vm, 3);
+  pigeonEnsureSlots(vm, 3);
   
-  Value moduleValue = wrenMapGet(vm, vm->modules, vm->apiStack[1]);
+  Value moduleValue = pigeonMapGet(vm, vm->modules, vm->apiStack[1]);
   if (IS_UNDEFINED(moduleValue))
   {
     vm->apiStack[0] = NULL_VAL;
@@ -49,7 +49,7 @@ void metaGetModuleVariables(WrenVM* vm)
   }
     
   ObjModule* module = AS_MODULE(moduleValue);
-  ObjList* names = wrenNewList(vm, module->variableNames.count);
+  ObjList* names = pigeonNewList(vm, module->variableNames.count);
   vm->apiStack[0] = OBJ_VAL(names);
 
   // Initialize the elements to null in case a collection happens when we
@@ -65,14 +65,14 @@ void metaGetModuleVariables(WrenVM* vm)
   }
 }
 
-const char* wrenMetaSource()
+const char* pigeonMetaSource()
 {
   return metaModuleSource;
 }
 
-WrenForeignMethodFn wrenMetaBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
-                                              const char* WREN_MAYBE_UNUSED className,
-                                              bool WREN_MAYBE_UNUSED isStatic,
+PigeonForeignMethodFn pigeonMetaBindForeignMethod(PigeonVM* PIGEON_MAYBE_UNUSED vm,
+                                              const char* PIGEON_MAYBE_UNUSED className,
+                                              bool PIGEON_MAYBE_UNUSED isStatic,
                                               const char* signature)
 {
   // There is only one foreign method in the meta module.

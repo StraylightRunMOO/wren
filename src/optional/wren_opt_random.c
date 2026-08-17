@@ -1,11 +1,11 @@
 #include "wren_opt_random.h"
 
-#if WREN_OPT_RANDOM
+#if PIGEON_OPT_RANDOM
 
 #include <string.h>
 #include <time.h>
 
-#include "wren.h"
+#include "pigeon.h"
 #include "wren_vm.h"
 
 #include "wren_opt_random.wren.inc"
@@ -37,15 +37,15 @@ static uint32_t advanceState(Well512* well)
   return well->state[well->index];
 }
 
-static void randomAllocate(WrenVM* vm)
+static void randomAllocate(PigeonVM* vm)
 {
-  Well512* well = (Well512*)wrenSetSlotNewForeign(vm, 0, 0, sizeof(Well512));
+  Well512* well = (Well512*)pigeonSetSlotNewForeign(vm, 0, 0, sizeof(Well512));
   well->index = 0;
 }
 
-static void randomSeed0(WrenVM* vm)
+static void randomSeed0(PigeonVM* vm)
 {
-  Well512* well = (Well512*)wrenGetSlotForeign(vm, 0);
+  Well512* well = (Well512*)pigeonGetSlotForeign(vm, 0);
 
   srand((uint32_t)time(NULL));
   for (int i = 0; i < 16; i++)
@@ -54,30 +54,30 @@ static void randomSeed0(WrenVM* vm)
   }
 }
 
-static void randomSeed1(WrenVM* vm)
+static void randomSeed1(PigeonVM* vm)
 {
-  Well512* well = (Well512*)wrenGetSlotForeign(vm, 0);
+  Well512* well = (Well512*)pigeonGetSlotForeign(vm, 0);
 
-  srand((uint32_t)wrenGetSlotDouble(vm, 1));
+  srand((uint32_t)pigeonGetSlotDouble(vm, 1));
   for (int i = 0; i < 16; i++)
   {
     well->state[i] = rand();
   }
 }
 
-static void randomSeed16(WrenVM* vm)
+static void randomSeed16(PigeonVM* vm)
 {
-  Well512* well = (Well512*)wrenGetSlotForeign(vm, 0);
+  Well512* well = (Well512*)pigeonGetSlotForeign(vm, 0);
 
   for (int i = 0; i < 16; i++)
   {
-    well->state[i] = (uint32_t)wrenGetSlotDouble(vm, i + 1);
+    well->state[i] = (uint32_t)pigeonGetSlotDouble(vm, i + 1);
   }
 }
 
-static void randomFloat(WrenVM* vm)
+static void randomFloat(PigeonVM* vm)
 {
-  Well512* well = (Well512*)wrenGetSlotForeign(vm, 0);
+  Well512* well = (Well512*)pigeonGetSlotForeign(vm, 0);
 
   // A double has 53 bits of precision in its mantissa, and we'd like to take
   // full advantage of that, so we need 53 bits of random source data.
@@ -92,35 +92,35 @@ static void randomFloat(WrenVM* vm)
   // from 0 to 1.0 (half-inclusive).
   result /= 9007199254740992.0;
 
-  wrenSetSlotDouble(vm, 0, result);
+  pigeonSetSlotDouble(vm, 0, result);
 }
 
-static void randomInt0(WrenVM* vm)
+static void randomInt0(PigeonVM* vm)
 {
-  Well512* well = (Well512*)wrenGetSlotForeign(vm, 0);
+  Well512* well = (Well512*)pigeonGetSlotForeign(vm, 0);
 
-  wrenSetSlotDouble(vm, 0, (double)advanceState(well));
+  pigeonSetSlotDouble(vm, 0, (double)advanceState(well));
 }
 
-const char* wrenRandomSource()
+const char* pigeonRandomSource()
 {
   return randomModuleSource;
 }
 
-WrenForeignClassMethods wrenRandomBindForeignClass(WrenVM* WREN_MAYBE_UNUSED vm,
-                                                   const char* WREN_MAYBE_UNUSED module,
-                                                   const char* WREN_MAYBE_UNUSED className)
+PigeonForeignClassMethods pigeonRandomBindForeignClass(PigeonVM* PIGEON_MAYBE_UNUSED vm,
+                                                   const char* PIGEON_MAYBE_UNUSED module,
+                                                   const char* PIGEON_MAYBE_UNUSED className)
 {
   ASSERT(strcmp(className, "Random") == 0, "Should be in Random class.");
-  WrenForeignClassMethods methods;
+  PigeonForeignClassMethods methods;
   methods.allocate = randomAllocate;
   methods.finalize = NULL;
   return methods;
 }
 
-WrenForeignMethodFn wrenRandomBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
-                                                const char* WREN_MAYBE_UNUSED className,
-                                                bool WREN_MAYBE_UNUSED isStatic,
+PigeonForeignMethodFn pigeonRandomBindForeignMethod(PigeonVM* PIGEON_MAYBE_UNUSED vm,
+                                                const char* PIGEON_MAYBE_UNUSED className,
+                                                bool PIGEON_MAYBE_UNUSED isStatic,
                                                 const char* signature)
 {
   ASSERT(strcmp(className, "Random") == 0, "Should be in Random class.");

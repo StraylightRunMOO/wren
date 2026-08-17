@@ -1,5 +1,5 @@
-#ifndef wren_math_h
-#define wren_math_h
+#ifndef pigeon_math_h
+#define pigeon_math_h
 
 #include <math.h>
 #include <stdint.h>
@@ -10,23 +10,23 @@ typedef union
   uint64_t bits64;
   uint32_t bits32[2];
   double num;
-} WrenDoubleBits;
+} PigeonDoubleBits;
 
-#define WREN_DOUBLE_QNAN_POS_MIN_BITS (UINT64_C(0x7FF8000000000000))
-#define WREN_DOUBLE_QNAN_POS_MAX_BITS (UINT64_C(0x7FFFFFFFFFFFFFFF))
+#define PIGEON_DOUBLE_QNAN_POS_MIN_BITS (UINT64_C(0x7FF8000000000000))
+#define PIGEON_DOUBLE_QNAN_POS_MAX_BITS (UINT64_C(0x7FFFFFFFFFFFFFFF))
 
-#define WREN_DOUBLE_NAN (wrenDoubleFromBits(WREN_DOUBLE_QNAN_POS_MIN_BITS))
+#define PIGEON_DOUBLE_NAN (pigeonDoubleFromBits(PIGEON_DOUBLE_QNAN_POS_MIN_BITS))
 
-static inline double wrenDoubleFromBits(uint64_t bits)
+static inline double pigeonDoubleFromBits(uint64_t bits)
 {
-  WrenDoubleBits data;
+  PigeonDoubleBits data;
   data.bits64 = bits;
   return data.num;
 }
 
-static inline uint64_t wrenDoubleToBits(double num)
+static inline uint64_t pigeonDoubleToBits(double num)
 {
-  WrenDoubleBits data;
+  PigeonDoubleBits data;
   data.num = num;
   return data.bits64;
 }

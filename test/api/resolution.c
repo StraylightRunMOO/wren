@@ -3,23 +3,23 @@
 
 #include "resolution.h"
 
-static void writeFn(WrenVM* vm, const char* text)
+static void writeFn(PigeonVM* vm, const char* text)
 {
   printf("%s", text);
 }
 
-static void reportError(WrenVM* vm, WrenErrorType type,
+static void reportError(PigeonVM* vm, PigeonErrorType type,
                         const char* module, int line, const char* message)
 {
-  if (type == WREN_ERROR_RUNTIME) printf("%s\n", message);
+  if (type == PIGEON_ERROR_RUNTIME) printf("%s\n", message);
 }
 
-static void loadModuleComplete(WrenVM* vm, const char* module, WrenLoadModuleResult result)
+static void loadModuleComplete(PigeonVM* vm, const char* module, PigeonLoadModuleResult result)
 {
   free((void*)result.source);
 }
 
-static WrenLoadModuleResult loadModule(WrenVM* vm, const char* module)
+static PigeonLoadModuleResult loadModule(PigeonVM* vm, const char* module)
 {
   printf("loading %s\n", module);
 
@@ -36,66 +36,66 @@ static WrenLoadModuleResult loadModule(WrenVM* vm, const char* module)
   char* string = (char*)malloc(strlen(source) + 1);
   strcpy(string, source);
 
-  WrenLoadModuleResult result = {0};
+  PigeonLoadModuleResult result = {0};
     result.onComplete = loadModuleComplete;
     result.source = string;
   return result;
 }
 
-static void runTestVM(WrenVM* vm, WrenConfiguration* configuration,
+static void runTestVM(PigeonVM* vm, PigeonConfiguration* configuration,
                       const char* source)
 {
   configuration->writeFn = writeFn;
   configuration->errorFn = reportError;
   configuration->loadModuleFn = loadModule;
 
-  WrenVM* otherVM = wrenNewVM(configuration);
+  PigeonVM* otherVM = pigeonNewVM(configuration);
 
   // We should be able to execute code.
-  WrenInterpretResult result = wrenInterpret(otherVM, "main", source);
-  if (result != WREN_RESULT_SUCCESS)
+  PigeonInterpretResult result = pigeonInterpret(otherVM, "main", source);
+  if (result != PIGEON_RESULT_SUCCESS)
   {
-    wrenSetSlotString(vm, 0, "error");
+    pigeonSetSlotString(vm, 0, "error");
   }
   else
   {
-    wrenSetSlotString(vm, 0, "success");
+    pigeonSetSlotString(vm, 0, "success");
   }
 
-  wrenFreeVM(otherVM);
+  pigeonFreeVM(otherVM);
 }
 
-static void noResolver(WrenVM* vm)
+static void noResolver(PigeonVM* vm)
 {
-  WrenConfiguration configuration;
-  wrenInitConfiguration(&configuration);
+  PigeonConfiguration configuration;
+  pigeonInitConfiguration(&configuration);
 
   // Should default to no resolution function.
   if (configuration.resolveModuleFn != NULL)
   {
-    wrenSetSlotString(vm, 0, "Did not have null resolve function.");
+    pigeonSetSlotString(vm, 0, "Did not have null resolve function.");
     return;
   }
 
   runTestVM(vm, &configuration, "import \"foo/bar\"");
 }
 
-static const char* resolveToNull(WrenVM* vm, const char* importer,
+static const char* resolveToNull(PigeonVM* vm, const char* importer,
                                  const char* name)
 {
   return NULL;
 }
 
-static void returnsNull(WrenVM* vm)
+static void returnsNull(PigeonVM* vm)
 {
-  WrenConfiguration configuration;
-  wrenInitConfiguration(&configuration);
+  PigeonConfiguration configuration;
+  pigeonInitConfiguration(&configuration);
 
   configuration.resolveModuleFn = resolveToNull;
   runTestVM(vm, &configuration, "import \"foo/bar\"");
 }
 
-static const char* resolveChange(WrenVM* vm, const char* importer,
+static const char* resolveChange(PigeonVM* vm, const char* importer,
                                  const char* name)
 {
   // Concatenate importer and name.
@@ -114,34 +114,34 @@ static const char* resolveChange(WrenVM* vm, const char* importer,
   return result;
 }
 
-static void changesString(WrenVM* vm)
+static void changesString(PigeonVM* vm)
 {
-  WrenConfiguration configuration;
-  wrenInitConfiguration(&configuration);
+  PigeonConfiguration configuration;
+  pigeonInitConfiguration(&configuration);
 
   configuration.resolveModuleFn = resolveChange;
   runTestVM(vm, &configuration, "import \"foo|bar\"");
 }
 
-static void shared(WrenVM* vm)
+static void shared(PigeonVM* vm)
 {
-  WrenConfiguration configuration;
-  wrenInitConfiguration(&configuration);
+  PigeonConfiguration configuration;
+  pigeonInitConfiguration(&configuration);
 
   configuration.resolveModuleFn = resolveChange;
   runTestVM(vm, &configuration, "import \"foo|bar\"\nimport \"foo/bar\"");
 }
 
-static void importer(WrenVM* vm)
+static void importer(PigeonVM* vm)
 {
-  WrenConfiguration configuration;
-  wrenInitConfiguration(&configuration);
+  PigeonConfiguration configuration;
+  pigeonInitConfiguration(&configuration);
 
   configuration.resolveModuleFn = resolveChange;
   runTestVM(vm, &configuration, "import \"baz|bang\"");
 }
 
-WrenForeignMethodFn resolutionBindMethod(const char* signature)
+PigeonForeignMethodFn resolutionBindMethod(const char* signature)
 {
   if (strcmp(signature, "static Resolution.noResolver()") == 0) return noResolver;
   if (strcmp(signature, "static Resolution.returnsNull()") == 0) return returnsNull;
@@ -152,7 +152,7 @@ WrenForeignMethodFn resolutionBindMethod(const char* signature)
   return NULL;
 }
 
-void resolutionBindClass(const char* className, WrenForeignClassMethods* methods)
+void resolutionBindClass(const char* className, PigeonForeignClassMethods* methods)
 {
 //  methods->allocate = foreignClassAllocate;
 }
