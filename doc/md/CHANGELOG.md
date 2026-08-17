@@ -1,5 +1,16 @@
 ## 0.5.0 (Unreleased)
 
+### Product
+- **Rebrand to Pigeon.** Public C API is `pigeon.h` (`PigeonVM`, `pigeonInterpret`, …).
+  `wren.h` is a one-release compatibility shim. CMake package is `Pigeon`
+  (`libpigeon`, CLI `pigeon`, test harness `pigeon_test`). Version is 0.5.0.
+
+### VM
+- Numeric infix `+ - * /` emit dedicated opcodes with a Num/Num fast path
+  and method-call fallback (`+(_)`, …).
+- Numeric comparisons `< > <= >=` emit `LT` / `GT` / `LTE` / `GTE` the same way.
+- Monomorphic inline cache on `CALL_*`.
+
 ### Language
 - **New `fn` syntax**: Anonymous functions now use the `fn` keyword instead of `Fn.new`:
   ```wren

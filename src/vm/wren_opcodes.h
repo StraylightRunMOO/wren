@@ -77,6 +77,17 @@ OPCODE(STORE_FIELD, -1)
 // Pop and discard the top of stack.
 OPCODE(POP, -1)
 
+// Numeric infix ops. Fast path when both operands are Num; otherwise they
+// fall back to the corresponding method call (+, -, *, /).
+OPCODE(ADD, -1)
+OPCODE(SUB, -1)
+OPCODE(MUL, -1)
+OPCODE(DIV, -1)
+OPCODE(LT, -1)
+OPCODE(GT, -1)
+OPCODE(LTE, -1)
+OPCODE(GTE, -1)
+
 // Invoke the method with symbol [arg]. The number indicates the number of
 // arguments (not including the receiver).
 OPCODE(CALL_0, 0)

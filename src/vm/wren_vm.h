@@ -44,8 +44,12 @@ struct WrenVM
   ObjClass* generatorClass;
 
   // Head of the linked list of all live WrenIterator objects.
-  // Used to force-close generators before neco event loop shutdown.
+  // Used to force-close generators before the host event loop exits.
   struct WrenIterator* liveIterators;
+
+  // Nesting depth of wrenInterpret on this VM. Outermost call owns the
+  // Suspenders runtime; nested calls (e.g. Meta.eval) run in-place.
+  int interpretNestingLevel;
 
   // The fiber that is currently running.
   ObjFiber* fiber;
@@ -117,6 +121,9 @@ struct WrenVM
   // Method calls are dispatched directly by index in this table.
   SymbolTable methodNames;
 };
+
+// Default host allocator: Memento thread heap with a size-prefix header.
+void* wrenDefaultReallocate(void* memory, size_t newSize, void* userData);
 
 // A generic allocation function that handles all explicit memory management.
 // It's used like so:
@@ -250,11 +257,11 @@ static inline bool wrenIsLocalName(const char* name)
 
 static inline bool wrenIsFalsyValue(Value value)
 {
-  // Ruby/JS-style: false, null, 0, 0.0, empty [], and empty {} are falsy.
+  // false, null, and numeric 0 / 0.0. Collections stay truthy (including
+  // empty [] / {}) so `if` and `!` agree: `!` is Object's method and
+  // always returns false for lists/maps.
   if (IS_FALSE(value) || IS_NULL(value)) return true;
   if (IS_NUM(value) && AS_NUM(value) == 0) return true;
-  if (IS_LIST(value) && AS_LIST(value)->elements.count == 0) return true;
-  if (IS_MAP(value) && AS_MAP(value)->count == 0) return true;
   return false;
 }
 

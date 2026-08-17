@@ -8,15 +8,23 @@
 #include "wren.h"
 #include "wren_common.h"
 
-// Reader.read_(fd, n)
+// Reader.read_(fd, n) — byte-exact, may contain NULs.
 static void readerRead(WrenVM* vm) {
   int fd = (int)wrenGetSlotDouble(vm, 1);
   int n  = (int)wrenGetSlotDouble(vm, 2);
-  char* buf = malloc(n + 1);
-  ssize_t got = read(fd, buf, n);
+  if (n <= 0) {
+    wrenSetSlotBytes(vm, 0, "", 0);
+    return;
+  }
+  char* buf = malloc((size_t)n);
+  if (buf == NULL) {
+    wrenSetSlotString(vm, 0, "Out of memory");
+    wrenAbortFiber(vm, 0);
+    return;
+  }
+  ssize_t got = read(fd, buf, (size_t)n);
   if (got < 0) got = 0;
-  buf[got] = '\0';
-  wrenSetSlotString(vm, 0, buf);
+  wrenSetSlotBytes(vm, 0, buf, (size_t)got);
   free(buf);
 }
 
@@ -25,16 +33,27 @@ static void readerReadAll(WrenVM* vm) {
   int fd = (int)wrenGetSlotDouble(vm, 1);
   size_t cap = 4096, len = 0;
   char* buf = malloc(cap);
+  if (buf == NULL) {
+    wrenSetSlotString(vm, 0, "Out of memory");
+    wrenAbortFiber(vm, 0);
+    return;
+  }
   ssize_t n;
   while ((n = read(fd, buf + len, cap - len)) > 0) {
-    len += n;
+    len += (size_t)n;
     if (len == cap) {
       cap *= 2;
-      buf = realloc(buf, cap);
+      char* grown = realloc(buf, cap);
+      if (grown == NULL) {
+        free(buf);
+        wrenSetSlotString(vm, 0, "Out of memory");
+        wrenAbortFiber(vm, 0);
+        return;
+      }
+      buf = grown;
     }
   }
-  buf[len] = '\0';
-  wrenSetSlotString(vm, 0, buf);
+  wrenSetSlotBytes(vm, 0, buf, len);
   free(buf);
 }
 
@@ -43,15 +62,29 @@ static void readerReadLine(WrenVM* vm) {
   int fd = (int)wrenGetSlotDouble(vm, 1);
   size_t cap = 256, len = 0;
   char* buf = malloc(cap);
+  if (buf == NULL) {
+    wrenSetSlotString(vm, 0, "Out of memory");
+    wrenAbortFiber(vm, 0);
+    return;
+  }
   char c;
   ssize_t n;
   while ((n = read(fd, &c, 1)) == 1) {
-    if (len + 1 >= cap) { cap *= 2; buf = realloc(buf, cap); }
     if (c == '\n') break;
+    if (len + 1 >= cap) {
+      cap *= 2;
+      char* grown = realloc(buf, cap);
+      if (grown == NULL) {
+        free(buf);
+        wrenSetSlotString(vm, 0, "Out of memory");
+        wrenAbortFiber(vm, 0);
+        return;
+      }
+      buf = grown;
+    }
     buf[len++] = c;
   }
-  buf[len] = '\0';
-  wrenSetSlotString(vm, 0, buf);
+  wrenSetSlotBytes(vm, 0, buf, len);
   free(buf);
 }
 
@@ -61,12 +94,12 @@ static void fdClose(WrenVM* vm) {
   close(fd);
 }
 
-// Writer.write_(fd, s)
+// Writer.write_(fd, s) — writes the string's byte length, not strlen.
 static void writerWrite(WrenVM* vm) {
   int fd = (int)wrenGetSlotDouble(vm, 1);
-  const char* s = wrenGetSlotString(vm, 2);
-  size_t len = strlen(s);
-  ssize_t written = write(fd, s, len);
+  int length = 0;
+  const char* s = wrenGetSlotBytes(vm, 2, &length);
+  ssize_t written = write(fd, s, (size_t)length);
   wrenSetSlotDouble(vm, 0, (double)(written < 0 ? 0 : written));
 }
 

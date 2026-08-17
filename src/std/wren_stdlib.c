@@ -18,24 +18,26 @@ static const char* ioExports[] = { "io", "Reader", "Writer", "Pipe", NULL };
 static const char* fsExports[] = { "fs", "File", NULL };
 static const char* osExports[] = { "os", "Stdin", "Stdout", "Stderr", NULL };
 static const char* strconvExports[] = { "strconv", "Atoi", "Atof", "Itoa", "Ftoa", NULL };
-static const char* timeExports[] = { "time", "Duration", "Timer", "Now", "Sleep", NULL };
+static const char* timeExports[] = { "Time", "Duration", "Timer", "Now", "Sleep", NULL };
 static const char* mathExports[] = { "math", "Rand", "Stats", "Inf", "NaN", "E", "Pi", "Phi", NULL };
-static const char* mathRandomExports[] = { "random", "RandomState", "Uint64", "Double", "Float", "Int", "IntInRange", "RandBool", "Normal", "NormalParams", "Choice", "Shuffle", "Sample", "Seed", "Pi", NULL };
+static const char* mathRandomExports[] = { "Random", "RandomState", "ALG_XOSHIRO256PP", "ALG_XOROSHIRO128PP", "ALG_WYRAND", "ALG_XSHIFT64STAR", "Uint64", "Double", "Float", "Int", "IntInRange", "RandBool", "Normal", "NormalParams", "Choice", "Shuffle", "Sample", "Seed", "Pi", NULL };
 static const char* stringsExports[] = { "strings", "Builder", "Contains", "HasPrefix", "HasSuffix", "Join", "Repeat", "Replace", "Split", "Trim", "ToLower", "ToUpper", NULL };
-static const char* metaExports[] = { "meta", NULL };
+static const char* metaExports[] = { "meta", "Meta", NULL };
 static const char* metaReflectionExports[] = { "reflection", "ClassInfo", "MethodInfo", "Reflection_", NULL };
+static const char* jsonExports[] = { "Json", NULL };
 
 static StdlibModule stdlibModules[] = {
   { "io", wrenIoSource, wrenIoBindForeignMethod, NULL, "io", ioExports },
   { "fs", wrenFsSource, wrenFsBindForeignMethod, NULL, "fs", fsExports },
   { "os", wrenOsSource, wrenOsBindForeignMethod, NULL, "os", osExports },
   { "strconv", wrenStrconvSource, wrenStrconvBindForeignMethod, NULL, "strconv", strconvExports },
-  { "time", wrenTimeSource, wrenTimeBindForeignMethod, NULL, "time", timeExports },
+  { "time", wrenTimeSource, wrenTimeBindForeignMethod, NULL, "Time", timeExports },
   { "math", wrenMathModuleSource, wrenMathModuleBindForeignMethod, NULL, "math", mathExports },
-  { "math/random", wrenRandomModuleSource, wrenRandomModuleBindForeignMethod, wrenRandomModuleBindForeignClass, "random", mathRandomExports },
+  { "math/random", wrenRandomModuleSource, wrenRandomModuleBindForeignMethod, wrenRandomModuleBindForeignClass, "Random", mathRandomExports },
   { "strings", wrenStringsSource, wrenStringsBindForeignMethod, NULL, "strings", stringsExports },
   { "meta", wrenMetaSource, wrenMetaBindForeignMethod, NULL, "meta", metaExports },
   { "meta/reflection", wrenReflectionSource, wrenReflectionBindForeignMethod, NULL, "reflection", metaReflectionExports },
+  { "encoding/json", wrenJsonSource, wrenJsonBindForeignMethod, NULL, "Json", jsonExports },
   { NULL, NULL, NULL, NULL, NULL, NULL }
 };
 

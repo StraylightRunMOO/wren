@@ -9,13 +9,13 @@ class os {
   static stderr { 2 }
 
   // Command-line arguments (list of strings)
-  static args { os.args_() }
+  static args { args_() }
 
   // Environment variable lookup; returns null if not set
-  static env(key) { os.env_(key) }
+  static env(key) { env_(key) }
 
   // Terminate the process
-  static exit(code) { os.exit_(code) }
+  static exit(code) { exit_(code) }
 
   foreign static args_()
   foreign static env_(key)

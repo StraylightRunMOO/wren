@@ -19,10 +19,10 @@ class fs {
     f.write(data)
     f.close()
   }
-  static exists(path)       { fs.exists_(path) }
-  static remove(path)       { fs.remove_(path) }
-  static rename(old, new)   { fs.rename_(old, new) }
-  static size(path)         { fs.size_(path) }
+  static exists(path)       { exists_(path) }
+  static remove(path)       { remove_(path) }
+  static rename(old, new)   { rename_(old, new) }
+  static size(path)         { size_(path) }
 
   foreign static exists_(path)
   foreign static remove_(path)
@@ -39,6 +39,32 @@ class File {
   static O_CREATE { 64 }
   static O_TRUNC  { 512 }
   static O_APPEND { 1024 }
+
+  static read(path) {
+    var f = new(path, "r")
+    var s = f.readAll()
+    f.close()
+    return s
+  }
+  static write(path, data) {
+    var f = new(path, "w")
+    f.write(data)
+    f.close()
+  }
+  static append(path, data) {
+    var f = new(path, "a")
+    f.write(data)
+    f.close()
+  }
+  static exists(path) { exists_(path) }
+  static remove(path) { remove_(path) }
+  static rename(old, new) { rename_(old, new) }
+  static size(path) { size_(path) }
+
+  foreign static exists_(path)
+  foreign static remove_(path)
+  foreign static rename_(old, new)
+  foreign static size_(path)
 
   construct new(path, mode) {
     _fd = File.open_(path, parseMode_(mode))

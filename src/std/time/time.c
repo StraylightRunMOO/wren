@@ -154,7 +154,7 @@ WrenForeignMethodFn wrenTimeBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
 {
   (void)vm;
   
-  if (strcmp(className, "time") != 0) return NULL;
+  if (strcmp(className, "Time") != 0) return NULL;
   
   if (isStatic) {
     if (strcmp(signature, "now()") == 0) return timeNow;

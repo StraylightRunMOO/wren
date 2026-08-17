@@ -1,6 +1,6 @@
 // time - Time and date operations for Wren
 
-class time {
+class Time {
   // Get current Unix timestamp in seconds
   foreign static now()
 
@@ -15,7 +15,7 @@ class time {
 
   // Parse time from string
   construct parse(layout, value) {
-    _sec = time.parse_(layout, value)
+    _sec = Time.parse_(layout, value)
   }
 
   // Create time from Unix timestamp
@@ -25,32 +25,32 @@ class time {
 
   // Create time from components (year, month, day, hour, min, sec)
   construct new(year, month, day, hour, min, sec) {
-    _sec = time.fromComponents_(year, month, day, hour, min, sec)
+    _sec = Time.fromComponents_(year, month, day, hour, min, sec)
   }
 
   // Getters
   sec { _sec }
-  year { time.getComponent_(_sec, 0) }
-  month { time.getComponent_(_sec, 1) }
-  day { time.getComponent_(_sec, 2) }
-  hour { time.getComponent_(_sec, 3) }
-  minute { time.getComponent_(_sec, 4) }
-  second { time.getComponent_(_sec, 5) }
-  weekday { time.getComponent_(_sec, 6) }
-  yearday { time.getComponent_(_sec, 7) }
+  year { Time.getComponent_(_sec, 0) }
+  month { Time.getComponent_(_sec, 1) }
+  day { Time.getComponent_(_sec, 2) }
+  hour { Time.getComponent_(_sec, 3) }
+  minute { Time.getComponent_(_sec, 4) }
+  second { Time.getComponent_(_sec, 5) }
+  weekday { Time.getComponent_(_sec, 6) }
+  yearday { Time.getComponent_(_sec, 7) }
 
   // Format time according to layout
-  format(layout) { time.format_(_sec, layout) }
+  format(layout) { Time.format_(_sec, layout) }
 
   // Add duration
-  add(d) { time.fromUnix(_sec + d.seconds) }
+  add(d) { Time.fromUnix(_sec + d.seconds) }
 
   // Subtract duration or time
   sub(other) {
-    if (other is time) {
+    if (other is Time) {
       return Duration.new(_sec - other.sec)
     }
-    return time.fromUnix(_sec - other.seconds)
+    return Time.fromUnix(_sec - other.seconds)
   }
 
   // Comparison
@@ -133,13 +133,13 @@ class Timer {
   }
   
   start() {
-    _start = time.now()
+    _start = Time.now()
     return this
   }
   
   stop() {
     if (_start != null) {
-      _elapsed = time.now() - _start
+      _elapsed = Time.now() - _start
       _start = null
     }
     return this
@@ -151,10 +151,10 @@ class Timer {
     return this
   }
   
-  elapsed { _start != null ? time.now() - _start : _elapsed }
+  elapsed { _start != null ? Time.now() - _start : _elapsed }
   
   lap() {
-    var now = time.now()
+    var now = Time.now()
     var lapTime = now - (_start != null ? _start : now)
     _start = now
     return lapTime
@@ -162,5 +162,5 @@ class Timer {
 }
 
 // Convenience function
-var Now = fn { time.now() }
-var Sleep = fn(s) { time.sleep(s) }
+var Now = fn { Time.now() }
+var Sleep = fn(s) { Time.sleep(s) }

@@ -53,8 +53,10 @@ class Pipe {
   reader { _reader }
   writer { _writer }
 
-  read(n)  { _reader.read(n) }
-  write(s) { _writer.write(s) }
+  read(n)    { _reader.read(n) }
+  readAll()  { _reader.readAll() }
+  readLine() { _reader.readLine() }
+  write(s)   { _writer.write(s) }
 
   closeRead()  { _reader.close() }
   closeWrite() { _writer.close() }

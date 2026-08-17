@@ -16,8 +16,8 @@
 #include "wren_core.wren.inc"
 
 // Layout of ObjForeign data for Generator objects.
-// 'iterable' is stored here so the GC can trace and keep it alive —
-// the neco coroutine holds a raw C pointer into the iterable's data.
+// 'iterable' is stored here so the GC can trace and keep it alive while the
+// producer coroutine yields copies of its elements.
 typedef struct {
     WrenIterator* it;
     Value iterable;
@@ -29,6 +29,19 @@ void wrenGeneratorBlacken(WrenVM* vm, ObjForeign* foreign)
 {
     GeneratorData* gd = (GeneratorData*)foreign->data;
     wrenGrayValue(vm, gd->iterable);
+    wrenIteratorGray(vm, gd->it);
+}
+
+void wrenGeneratorDetachAll(WrenVM* vm)
+{
+  if (vm->generatorClass == NULL) return;
+  for (Obj* obj = vm->first; obj != NULL; obj = obj->next)
+  {
+    if (obj->type != OBJ_FOREIGN) continue;
+    if (obj->classObj != vm->generatorClass) continue;
+    GeneratorData* gd = (GeneratorData*)((ObjForeign*)obj)->data;
+    gd->it = NULL;
+  }
 }
 
 DEF_PRIMITIVE(bool_not)
@@ -1278,6 +1291,42 @@ DEF_PRIMITIVE(string_subscript)
   RETURN_VAL(wrenNewStringFromRange(vm, string, start, count, step));
 }
 
+// Length-aware lexicographic compare. Wren strings are 8-bit clean and may
+// contain NUL, so this must not use strcmp.
+static int stringCompare(ObjString* a, ObjString* b)
+{
+  uint32_t min = a->length < b->length ? a->length : b->length;
+  int cmp = memcmp(a->value, b->value, min);
+  if (cmp != 0) return cmp;
+  if (a->length < b->length) return -1;
+  if (a->length > b->length) return 1;
+  return 0;
+}
+
+DEF_PRIMITIVE(string_lt)
+{
+  if (!validateString(vm, args[1], "Right operand")) return false;
+  RETURN_BOOL(stringCompare(AS_STRING(args[0]), AS_STRING(args[1])) < 0);
+}
+
+DEF_PRIMITIVE(string_gt)
+{
+  if (!validateString(vm, args[1], "Right operand")) return false;
+  RETURN_BOOL(stringCompare(AS_STRING(args[0]), AS_STRING(args[1])) > 0);
+}
+
+DEF_PRIMITIVE(string_lte)
+{
+  if (!validateString(vm, args[1], "Right operand")) return false;
+  RETURN_BOOL(stringCompare(AS_STRING(args[0]), AS_STRING(args[1])) <= 0);
+}
+
+DEF_PRIMITIVE(string_gte)
+{
+  if (!validateString(vm, args[1], "Right operand")) return false;
+  RETURN_BOOL(stringCompare(AS_STRING(args[0]), AS_STRING(args[1])) >= 0);
+}
+
 DEF_PRIMITIVE(string_toString)
 {
   RETURN_VAL(args[0]);
@@ -1317,12 +1366,22 @@ static void inspectParseSignature(const char* name, int nameLen,
     else { *isGetter = true; }
     return;
   }
+  // Property setter: "name=(_)" — '=' immediately before '('
+  if (paren && paren > name && *(paren - 1) == '=') {
+    int underscores = 0;
+    for (const char* p = paren + 1; *p && *p != ')'; p++)
+      if (*p == '_') underscores++;
+    *isSetter = true;
+    *arity = underscores;
+    return;
+  }
   const char* open = (bracket && (!paren || bracket < paren)) ? bracket : paren;
   char close_ch = (*open == '(') ? ')' : ']';
   int underscores = 0;
   for (const char* p = open + 1; *p && *p != close_ch; p++)
     if (*p == '_') underscores++;
   const char* closePos = strchr(open, close_ch);
+  // Subscript setter: "[_]=" pattern
   bool hasSuffix = closePos && *(closePos + 1) == '=';
   if (*open == '[' && hasSuffix) { *isSetter = true; *arity = underscores + 1; }
   else { *arity = underscores; }
@@ -1444,7 +1503,7 @@ DEF_PRIMITIVE(system_inspect)
   RETURN_OBJ(result);
 }
 
-// Generator class implementation using neco coroutines
+// Generator class implementation using Suspenders coroutines + channels.
 
 // Allocator for Generator foreign class.
 static void generatorAllocate(WrenVM* vm)
@@ -1455,20 +1514,19 @@ static void generatorAllocate(WrenVM* vm)
   gd->iterable = NULL_VAL;
 }
 
-// Finalizer for Generator objects (called by GC).
-// wrenIteratorReleaseAll handles normal cleanup; this is a safety net.
+// Finalizer for Generator objects (called by GC). Must not use the VM.
+// Iterator structs are freed by wrenIteratorReleaseAll on interpret exit.
 static void generatorFinalize(void* data)
 {
   GeneratorData* gd = (GeneratorData*)data;
-  if (gd->it != NULL && gd->it->gen != NULL) {
-    neco_gen_close(gd->it->gen);
-    neco_gen_release(gd->it->gen);
-    gd->it->gen = NULL;
+  if (gd->it != NULL)
+  {
+    wrenIteratorShutdown(gd->it);
+    gd->it = NULL;
   }
-  // WrenIterator struct leaks without a VM pointer — acceptable, see wrenIteratorReleaseAll.
 }
 
-// Foreign method: Generator.init_(obj) — creates the neco iterator.
+// Foreign method: Generator.init_(obj) — creates the iterator producer.
 static void generatorInit(WrenVM* vm)
 {
   ObjForeign* foreign = AS_FOREIGN(vm->apiStack[0]);
@@ -1731,6 +1789,10 @@ void wrenInitializeCore(WrenVM* vm)
   PRIMITIVE(vm->stringClass->obj.classObj, "fromCodePoint(_)", string_fromCodePoint);
   PRIMITIVE(vm->stringClass->obj.classObj, "fromByte(_)", string_fromByte);
   PRIMITIVE(vm->stringClass, "+(_)", string_plus);
+  PRIMITIVE(vm->stringClass, "<(_)", string_lt);
+  PRIMITIVE(vm->stringClass, ">(_)", string_gt);
+  PRIMITIVE(vm->stringClass, "<=(_)", string_lte);
+  PRIMITIVE(vm->stringClass, ">=(_)", string_gte);
   PRIMITIVE(vm->stringClass, "[_]", string_subscript);
   PRIMITIVE(vm->stringClass, "byteAt_(_)", string_byteAt);
   PRIMITIVE(vm->stringClass, "byteCount_", string_byteCount);

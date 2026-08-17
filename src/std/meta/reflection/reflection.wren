@@ -52,26 +52,41 @@ class ClassInfo {
     return info.arity
   }
   
-  // Check if class has a method
+  // Check if class has a method (accepts base name "add" or full sig "add(_)")
   hasMethod(methodName) {
-    return _methods.containsKey(methodName)
+    if (_methods.containsKey(methodName)) return true
+    // Check if any stored signature starts with methodName + "(" or "["
+    for (key in _methods.keys) {
+      var parenIdx = key.indexOf("(")
+      var bracketIdx = key.indexOf("[")
+      var splitIdx = -1
+      if (parenIdx != -1 && bracketIdx != -1) {
+        splitIdx = parenIdx < bracketIdx ? parenIdx : bracketIdx
+      } else if (parenIdx != -1) {
+        splitIdx = parenIdx
+      } else if (bracketIdx != -1) {
+        splitIdx = bracketIdx
+      }
+      if (splitIdx != -1 && key[0...splitIdx] == methodName) return true
+    }
+    return false
   }
-  
+
   // Check if method is a getter (zero-arity, no parens needed)
   isGetter(methodName) {
     var info = _methods[methodName]
     if (info == null) return false
     return info.isGetter
   }
-  
+
   // Check if method is a setter
   isSetter(methodName) {
     var info = _methods[methodName]
     if (info == null) return false
     return info.isSetter
   }
-  
-  // Get full MethodInfo for a method
+
+  // Get full MethodInfo for a method (requires full signature for overloaded methods)
   methodInfo(methodName) {
     return _methods[methodName]
   }

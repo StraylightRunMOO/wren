@@ -4,24 +4,24 @@ class Fn {}
 class Null {}
 class Num {}
 
-// Generator class for iterating over sequences using neco coroutines.
-// The foreign methods interface with C; the Wren class provides the iterator protocol.
-class Generator {
+// Generator is a foreign class: C owns the iterator payload. Do not add Wren
+// fields — they would overlay the foreign bytes.
+foreign class Generator {
   construct new(obj) {
     init_(obj)
-    _current = null
   }
 
   foreign init_(obj)
   foreign next()
 
-  // Iterator protocol: returns this while values remain, null when done
+  // The iterate token is the yielded value itself, so this foreign class
+  // does not need Wren fields (those would overlay the C payload).
   iterate(iterator) {
-    _current = next()
-    return _current == null ? null : this
+    var value = next()
+    return value
   }
 
-  iteratorValue(iterator) { _current }
+  iteratorValue(iterator) { iterator }
 }
 
 class Sequence {

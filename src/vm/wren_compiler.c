@@ -1715,6 +1715,19 @@ static ObjFn* endCompiler(Compiler* compiler,
   // we can't rely on CODE_RETURN to tell us we're at the end.
   emitOp(compiler, CODE_END);
 
+  // One IC slot per bytecode byte. Only CALL sites use them; empty slots
+  // stay klass == NULL.
+  {
+    WrenVM* vm = compiler->parser->vm;
+    int count = compiler->fn->code.count;
+    if (count > 0)
+    {
+      compiler->fn->ics = ALLOCATE_ARRAY(vm, InlineCache, count);
+      memset(compiler->fn->ics, 0, sizeof(InlineCache) * (size_t)count);
+      compiler->fn->icsCount = count;
+    }
+  }
+
   wrenFunctionBindName(compiler->parser->vm, compiler->fn,
                        debugName, debugNameLength);
   
@@ -2721,12 +2734,28 @@ static void conditional(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 void infixOp(Compiler* compiler, bool WREN_MAYBE_UNUSED canAssign)
 {
   GrammarRule* rule = getRule(compiler->parser->previous.type);
+  TokenType op = compiler->parser->previous.type;
 
   // An infix operator cannot end an expression.
   ignoreNewlines(compiler);
 
   // Compile the right-hand side.
   parsePrecedence(compiler, (Precedence)(rule->precedence + 1));
+
+  // Specialized numeric ops for + - * /. The VM fast-paths Num/Num and
+  // falls back to the method call if either operand is not a number.
+  switch (op)
+  {
+    case TOKEN_PLUS:  emitOp(compiler, CODE_ADD); return;
+    case TOKEN_MINUS: emitOp(compiler, CODE_SUB); return;
+    case TOKEN_STAR:  emitOp(compiler, CODE_MUL); return;
+    case TOKEN_SLASH: emitOp(compiler, CODE_DIV); return;
+    case TOKEN_LT:    emitOp(compiler, CODE_LT);  return;
+    case TOKEN_GT:    emitOp(compiler, CODE_GT);  return;
+    case TOKEN_LTEQ:  emitOp(compiler, CODE_LTE); return;
+    case TOKEN_GTEQ:  emitOp(compiler, CODE_GTE); return;
+    default: break;
+  }
 
   // Call the operator method on the left-hand side.
   Signature signature = { rule->name, (int)strlen(rule->name), SIG_METHOD, 1 };
@@ -3026,6 +3055,14 @@ static int getByteCountForArguments(const uint8_t* bytecode,
     case CODE_FOREIGN_CLASS:
     case CODE_END_MODULE:
     case CODE_END_CLASS:
+    case CODE_ADD:
+    case CODE_SUB:
+    case CODE_MUL:
+    case CODE_DIV:
+    case CODE_LT:
+    case CODE_GT:
+    case CODE_LTE:
+    case CODE_GTE:
       return 0;
 
     case CODE_LOAD_LOCAL:

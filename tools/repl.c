@@ -1,10 +1,10 @@
-// Wren REPL - Interactive Read-Eval-Print Loop
-// A simple but nice REPL for experimenting with Wren code
+// Pigeon CLI — file runner and interactive REPL.
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <ctype.h>
 #include "wren.h"
 
 // Forward declarations for stdlib functions (avoids pulling in internal VM headers)
@@ -66,7 +66,8 @@ static void printBanner(void)
 {
   printf("%s", COLOR_INFO);
   printf("╔═══════════════════════════════════════════════════════════╗\n");
-  printf("║                     Wren REPL v0.4.0                      ║\n");
+  printf("║                   Pigeon REPL v%s                      ║\n",
+         PIGEON_VERSION_STRING);
   printf("║          Interactive Read-Eval-Print Loop                 ║\n");
   printf("╚═══════════════════════════════════════════════════════════╝\n");
   printf("\n");
@@ -88,7 +89,7 @@ static void printBanner(void)
 static void printHelp(void)
 {
   printf("%s", COLOR_INFO);
-  printf("\nWren REPL Commands:\n");
+  printf("\nPigeon REPL Commands:\n");
   printf("  .help            - Show this help message\n");
   printf("  .quit / .exit    - Exit the REPL\n");
   printf("  .clear / .cls    - Clear the screen\n");
@@ -96,10 +97,10 @@ static void printHelp(void)
   printf("  .inspect <name>  - Show type, class, and methods for a variable or class\n");
   printf("  .reset           - Reset the VM and clear all state\n");
   printf("\nExamples:\n");
-  printf("  wren> 2 + 2\n");
-  printf("  wren> var x = 10\n");
-  printf("  wren> System.print(\"Hello, World!\")\n");
-  printf("  wren> [1, 2, 3].map {|n| n * 2 }\n");
+  printf("  pigeon> 2 + 2\n");
+  printf("  pigeon> var x = 10\n");
+  printf("  pigeon> System.print(\"Hello, World!\")\n");
+  printf("  pigeon> [1, 2, 3].map {|n| n * 2 }\n");
   printf("  wren> \"\"\"                    // Start multi-line\n");
   printf("  ....> class Foo {\n");
   printf("  ....>   bar { 42 }\n");
@@ -296,48 +297,64 @@ static void cmdVars(WrenVM* vm)
   wrenInterpret(vm, mod, src);
 }
 
+// .inspect takes a Wren identifier (optionally dotted). Reject anything
+// else so the token cannot be interpolated as arbitrary source.
+static bool isSafeInspectName(const char* name)
+{
+  if (name == NULL || *name == '\0') return false;
+  if (!(isalpha((unsigned char)*name) || *name == '_')) return false;
+  for (const char* p = name + 1; *p != '\0'; p++)
+  {
+    if (!(isalnum((unsigned char)*p) || *p == '_' || *p == '.')) return false;
+  }
+  return true;
+}
+
 static void cmdInspect(WrenVM* vm, const char* name)
 {
-  char mod[64];
-  snprintf(mod, sizeof(mod), "repl.cmd%d", g_cmdSeq++);
+  if (!isSafeInspectName(name))
+  {
+    printf("%s.inspect: name must be an identifier%s\n", COLOR_ERROR, COLOR_RESET);
+    return;
+  }
 
-  char src[4096];
+  // Wrap everything in a block so locals are block-scoped, not module-scoped.
+  // This lets us call .inspect multiple times without re-declaration errors.
+  // The block runs in "repl" so it can read user-defined variables.
+  // We store map values in named locals before using them to avoid string
+  // interpolation with quoted map keys (which breaks Wren's parser).
+  char src[2048];
   snprintf(src, sizeof(src),
-    "import \"meta\" for meta\n"
-    "import \"meta/reflection\" for reflection\n"
-    "var expr = meta.compileExpression(\"%s\")\n"
-    "var val  = expr == null ? null : expr.call()\n"
-    "if (val == null) {\n"
-    "  System.print(\"\x1b[31mCould not evaluate: %s\x1b[0m\")\n"
-    "} else {\n"
-    "  var isClass = val is Class\n"
-    "  var cls = isClass ? reflection.getClass(val.name) : reflection.classOf(val)\n"
-    "  if (cls == null) {\n"
-    "    System.print(\"\x1b[33m%s\x1b[0m : \x1b[36m%%(val.type.name)\x1b[0m\")\n"
-    "  } else {\n"
-    "    var tag = isClass ? \"class\" : \"instance of\"\n"
-    "    System.print(\"\x1b[33m%s\x1b[0m : \x1b[36m%%(tag) %%(cls.name)\x1b[0m\")\n"
-    "    var instMethods = []\n"
-    "    var staticMethods = []\n"
-    "    for (mname in cls.methods) {\n"
-    "      var mi = cls.methodInfo(mname)\n"
-    "      if (mi.isStatic) { staticMethods.add(mname) } else { instMethods.add(mname) }\n"
-    "    }\n"
-    "    instMethods.sort()\n"
-    "    staticMethods.sort()\n"
-    "    if (staticMethods.count > 0) {\n"
-    "      System.print(\"\x1b[90m  static:\x1b[0m\")\n"
-    "      for (m in staticMethods) { System.print(\"    \x1b[32m%%(m)\x1b[0m\") }\n"
-    "    }\n"
-    "    if (instMethods.count > 0) {\n"
-    "      System.print(\"\x1b[90m  instance:\x1b[0m\")\n"
-    "      for (m in instMethods) { System.print(\"    \x1b[32m%%(m)\x1b[0m\") }\n"
+    "{\n"
+    "  var info_ = System.inspect(%s)\n"
+    "  var cn_   = info_[\"className\"]\n"
+    "  var ic_   = info_[\"isClass\"]\n"
+    "  var tag_  = ic_ ? \"class\" : \"instance of\"\n"
+    "  System.print(\"\x1b[90m%s\x1b[0m : \x1b[36m\" + tag_ + \" \" + cn_ + \"\x1b[0m\")\n"
+    "  var stat_ = []\n"
+    "  var inst_ = []\n"
+    "  for (e_ in info_[\"methods\"]) {\n"
+    "    var s_ = e_.value[\"isStatic\"]\n"
+    "    if (s_) {\n"
+    "      stat_.add(e_.key)\n"
+    "    } else {\n"
+    "      inst_.add(e_.key)\n"
     "    }\n"
     "  }\n"
+    "  stat_.sort()\n"
+    "  inst_.sort()\n"
+    "  if (stat_.count > 0) {\n"
+    "    System.print(\"\x1b[90m  static:\x1b[0m\")\n"
+    "    for (m_ in stat_) { System.print(\"    \x1b[32m\" + m_ + \"\x1b[0m\") }\n"
+    "  }\n"
+    "  if (inst_.count > 0) {\n"
+    "    System.print(\"\x1b[90m  instance:\x1b[0m\")\n"
+    "    for (m_ in inst_) { System.print(\"    \x1b[32m\" + m_ + \"\x1b[0m\") }\n"
+    "  }\n"
     "}\n",
-    name, name, name, name);
+    name, name);
 
-  wrenInterpret(vm, mod, src);
+  wrenInterpret(vm, "repl", src);
 }
 
 static bool handleCommand(const char* line, WrenVM** vm)
@@ -435,49 +452,80 @@ static void executeCode(WrenVM* vm, const char* code)
   }
 }
 
+static int runFile(WrenVM* vm, const char* path)
+{
+  FILE* f = fopen(path, "r");
+  if (!f)
+  {
+    fprintf(stderr, "%sError: Could not open file %s%s\n",
+            COLOR_ERROR, path, COLOR_RESET);
+    return 66; /* EX_NOINPUT */
+  }
+
+  fseek(f, 0, SEEK_END);
+  long size = ftell(f);
+  fseek(f, 0, SEEK_SET);
+
+  char* code = malloc((size_t)size + 1);
+  if (!code)
+  {
+    fclose(f);
+    fprintf(stderr, "%sError: Out of memory reading %s%s\n",
+            COLOR_ERROR, path, COLOR_RESET);
+    return 70; /* EX_SOFTWARE */
+  }
+
+  size_t nread = fread(code, 1, (size_t)size, f);
+  code[nread] = '\0';
+  fclose(f);
+
+  WrenInterpretResult result = wrenInterpret(vm, path, code);
+  free(code);
+
+  if (result == WREN_RESULT_COMPILE_ERROR) return 65; /* EX_DATAERR */
+  if (result == WREN_RESULT_RUNTIME_ERROR) return 70; /* EX_SOFTWARE */
+  return 0;
+}
+
 int main(int argc, char* argv[])
 {
-  // Initialize Wren VM
+  if (argc > 1 && (strcmp(argv[1], "--version") == 0 ||
+                   strcmp(argv[1], "-v") == 0))
+  {
+    printf("pigeon %s\n", PIGEON_VERSION_STRING);
+    return 0;
+  }
+
+  if (argc > 1 && (strcmp(argv[1], "--help") == 0 ||
+                   strcmp(argv[1], "-h") == 0))
+  {
+    printf("Usage: pigeon [file]\n");
+    printf("  pigeon           Start the interactive REPL\n");
+    printf("  pigeon <file>    Run a Pigeon source file and exit\n");
+    printf("  pigeon --version Print the version and exit\n");
+    return 0;
+  }
+
   WrenConfiguration config;
   replInitConfig(&config);
   WrenVM* vm = wrenNewVM(&config);
 
-  // Print banner
-  printBanner();
-
-  // Execute any file passed as argument
+  // File argument: run and exit (the CLI, not a REPL session).
   if (argc > 1)
   {
-    FILE* f = fopen(argv[1], "r");
-    if (f)
-    {
-      fseek(f, 0, SEEK_END);
-      long size = ftell(f);
-      fseek(f, 0, SEEK_SET);
-
-      char* code = malloc(size + 1);
-      fread(code, 1, size, f);
-      code[size] = '\0';
-      fclose(f);
-
-      printf("%sExecuting %s...%s\n\n", COLOR_INFO, argv[1], COLOR_RESET);
-      wrenInterpret(vm, argv[1], code);
-      free(code);
-
-      printf("\n");
-    }
-    else
-    {
-      fprintf(stderr, "%sError: Could not open file %s%s\n", COLOR_ERROR, argv[1], COLOR_RESET);
-    }
+    int status = runFile(vm, argv[1]);
+    wrenFreeVM(vm);
+    return status;
   }
+
+  printBanner();
 
   // Main REPL loop
   input_buffer[0] = '\0';
 
   while (true)
   {
-    const char* prompt = in_multiline ? "....>" : "wren>";
+    const char* prompt = in_multiline ? "....>" : "pigeon>";
     char* line = readLine(prompt);
 
     if (line == NULL)

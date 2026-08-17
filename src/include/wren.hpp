@@ -1,11 +1,11 @@
 #ifndef wren_hpp
 #define wren_hpp
 
-// This is a convenience header for users that want to compile Wren as C and
-// link to it from a C++ application.
+/* Compatibility shim for one release. Include <pigeon.hpp> in new code. */
+#ifndef PIGEON_NO_WREN_DEPRECATION
+#warning "wren.hpp is deprecated; include pigeon.hpp"
+#endif
 
-extern "C" {
-  #include "wren.h"
-}
+#include "pigeon.hpp"
 
 #endif

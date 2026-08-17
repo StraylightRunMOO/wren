@@ -4,7 +4,7 @@ class Iter {
   iteratorValue(iterator) { "value" }
 }
 
-// False, null, 0, and empty collections are false.
+// False, null, and 0 stop iteration. Empty collections do not.
 for (n in Iter.new(false)) {
   System.print("bad")
   break
@@ -21,12 +21,12 @@ for (n in Iter.new(0)) {
 }
 
 for (n in Iter.new([])) {
-  System.print("bad")
+  System.print("empty-list") // expect: empty-list
   break
 }
 
 for (n in Iter.new({})) {
-  System.print("bad")
+  System.print("empty-map") // expect: empty-map
   break
 }
 

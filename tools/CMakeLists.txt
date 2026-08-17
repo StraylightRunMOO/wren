@@ -1,14 +1,15 @@
-# Wren Tools
+# Pigeon CLI (REPL + file runner)
 
-add_executable(wren_repl repl.c)
+add_executable(pigeon_cli repl.c)
+set_target_properties(pigeon_cli PROPERTIES OUTPUT_NAME pigeon)
 
-target_include_directories(wren_repl PRIVATE
+target_include_directories(pigeon_cli PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/include
 )
 
-target_link_libraries(wren_repl PRIVATE wren)
+target_compile_definitions(pigeon_cli PRIVATE PIGEON_NO_WREN_DEPRECATION)
+target_link_libraries(pigeon_cli PRIVATE pigeon)
 
-# Install the REPL
-install(TARGETS wren_repl
+install(TARGETS pigeon_cli
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )

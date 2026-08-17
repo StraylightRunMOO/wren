@@ -23,9 +23,9 @@ foreign class RandomState {
 }
 
 // High-quality random number generator
-class random {
+class Random {
   construct new() {
-    _state = RandomState.new(ALG_XOSHIRO256PP, systemSeed_())
+    _state = RandomState.new(ALG_XOSHIRO256PP, Random.systemSeed_())
   }
 
   construct new(seed) {
@@ -124,11 +124,11 @@ class random {
     }
   }
   
-  systemSeed_() { 12345 }
+  foreign static systemSeed_()
 }
 
 // Global shared PRNG
-var globalRand = random.new()
+var globalRand = Random.new()
 
 // Convenience functions at module level
 var Uint64 = fn { globalRand.nextUint64() }

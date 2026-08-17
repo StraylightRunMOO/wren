@@ -466,13 +466,13 @@
 
     if (argc < 2)
     {
-      printf("This is a Wren test runner.\nUsage: wren_test [file]\n");
+      printf("This is a Pigeon test runner.\nUsage: pigeon_test [file]\n");
       return WREN_EX_USAGE;
     }
 
     if (argc == 2 && strcmp(argv[1], "--version") == 0)
     {
-      printf("wren_test is running on Wren version %s\n", WREN_VERSION_STRING);
+      printf("pigeon_test is running on Pigeon version %s\n", WREN_VERSION_STRING);
       return 1;
     }
 

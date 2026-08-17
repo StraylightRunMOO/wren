@@ -1,4 +1,4 @@
-// False, null, 0, and empty collections are false.
+// False, null, and 0 are false. Empty collections are true.
 while (false) {
   System.print("bad")
   break
@@ -15,12 +15,12 @@ while (0) {
 }
 
 while ([]) {
-  System.print("bad")
+  System.print("empty-list") // expect: empty-list
   break
 }
 
 while ({}) {
-  System.print("bad")
+  System.print("empty-map") // expect: empty-map
   break
 }
 

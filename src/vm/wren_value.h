@@ -202,6 +202,10 @@ typedef struct sObjUpvalue
 // or modifies the running fiber, it returns `false`.
 typedef bool (*Primitive)(WrenVM* vm, Value* args);
 
+// Defined after Method below. One slot per bytecode byte; only CALL sites
+// are used. klass == NULL means empty.
+typedef struct sInlineCache InlineCache;
+
 // TODO: See if it's actually a perf improvement to have this in a separate
 // struct instead of in ObjFn.
 // Stores debugging information for a function used for things like stack
@@ -265,6 +269,11 @@ typedef struct
   // only be set for fns, and not ObjFns that represent methods or scripts.
   int arity;
   FnDebug* debug;
+
+  // Monomorphic inline caches, one slot per bytecode byte. NULL until the
+  // function is finished compiling.
+  InlineCache* ics;
+  int icsCount;
 } ObjFn;
 
 // An instance of a first-class function and the environment it has closed over.
@@ -386,6 +395,12 @@ typedef struct
     ObjClosure* closure;
   } as;
 } Method;
+
+struct sInlineCache
+{
+  ObjClass* klass;
+  Method method;
+};
 
 DECLARE_BUFFER(Method, Method);
 

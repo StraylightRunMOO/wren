@@ -1,4 +1,6 @@
 #include <stdarg.h>
+#include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "wren.h"
@@ -9,7 +11,6 @@
 #include "wren_primitive.h"
 #include "wren_vm.h"
 
-#include "neco.h"
 #include "wren_iterator.h"
 
 #if WREN_OPT_META
@@ -27,23 +28,7 @@
   #include <stdio.h>
 #endif
 
-// Track nesting level of wrenInterpret calls to only start neco at outermost level
-static int interpretNestingLevel = 0;
 
-// The behavior of realloc() when the size is 0 is implementation defined. It
-// may return a non-NULL pointer which must not be dereferenced but nevertheless
-// should be freed. To prevent that, we avoid calling realloc() with a zero
-// size.
-static void* defaultReallocate(void* ptr, size_t newSize, void* _)
-{
-  if (newSize == 0)
-  {
-    free(ptr);
-    return NULL;
-  }
-
-  return realloc(ptr, newSize);
-}
 
 int wrenGetVersionNumber() 
 { 
@@ -52,7 +37,7 @@ int wrenGetVersionNumber()
 
 void wrenInitConfiguration(WrenConfiguration* config)
 {
-  config->reallocateFn = defaultReallocate;
+  config->reallocateFn = wrenDefaultReallocate;
   config->resolveModuleFn = NULL;
   config->loadModuleFn = NULL;
   config->bindForeignMethodFn = NULL;
@@ -70,11 +55,11 @@ void wrenInitConfiguration(WrenConfiguration* config)
 
 WrenVM* wrenNewVM(WrenConfiguration* config)
 {
-  WrenReallocateFn reallocate = defaultReallocate;
+  WrenReallocateFn reallocate = wrenDefaultReallocate;
   void* userData = NULL;
   if (config != NULL) {
     userData = config->userData;
-    reallocate = config->reallocateFn ? config->reallocateFn : defaultReallocate;
+    reallocate = config->reallocateFn ? config->reallocateFn : wrenDefaultReallocate;
   }
   
   WrenVM* vm = (WrenVM*)reallocate(NULL, sizeof(*vm), userData);
@@ -759,9 +744,10 @@ static Value resolveModule(WrenVM* vm, Value name)
   // If they resolved to the exact same string, we don't need to copy it.
   if (resolved == AS_CSTRING(name)) return name;
 
-  // Copy the string into a Wren String object.
+  // Copy the string into a Wren String object. resolveModuleFn returns host
+  // memory (typically malloc); it is not a Memento block.
   name = wrenNewString(vm, resolved);
-  DEALLOCATE(vm, (char*)resolved);
+  free((char*)resolved);
   return name;
 }
 
@@ -1020,6 +1006,110 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
 
       Method* method;
 
+    CASE_CODE(ADD):
+      if (IS_NUM(PEEK2()) && IS_NUM(PEEK()))
+      {
+        double b = AS_NUM(POP());
+        PEEK() = NUM_VAL(AS_NUM(PEEK()) + b);
+        DISPATCH();
+      }
+      numArgs = 2;
+      symbol = wrenSymbolTableFind(&vm->methodNames, "+(_)", 4);
+      args = fiber->stackTop - 2;
+      classObj = wrenGetClassInline(vm, args[0]);
+      goto completeCall;
+
+    CASE_CODE(SUB):
+      if (IS_NUM(PEEK2()) && IS_NUM(PEEK()))
+      {
+        double b = AS_NUM(POP());
+        PEEK() = NUM_VAL(AS_NUM(PEEK()) - b);
+        DISPATCH();
+      }
+      numArgs = 2;
+      symbol = wrenSymbolTableFind(&vm->methodNames, "-(_)", 4);
+      args = fiber->stackTop - 2;
+      classObj = wrenGetClassInline(vm, args[0]);
+      goto completeCall;
+
+    CASE_CODE(MUL):
+      if (IS_NUM(PEEK2()) && IS_NUM(PEEK()))
+      {
+        double b = AS_NUM(POP());
+        PEEK() = NUM_VAL(AS_NUM(PEEK()) * b);
+        DISPATCH();
+      }
+      numArgs = 2;
+      symbol = wrenSymbolTableFind(&vm->methodNames, "*(_)", 4);
+      args = fiber->stackTop - 2;
+      classObj = wrenGetClassInline(vm, args[0]);
+      goto completeCall;
+
+    CASE_CODE(DIV):
+      if (IS_NUM(PEEK2()) && IS_NUM(PEEK()))
+      {
+        double b = AS_NUM(POP());
+        PEEK() = NUM_VAL(AS_NUM(PEEK()) / b);
+        DISPATCH();
+      }
+      numArgs = 2;
+      symbol = wrenSymbolTableFind(&vm->methodNames, "/(_)", 4);
+      args = fiber->stackTop - 2;
+      classObj = wrenGetClassInline(vm, args[0]);
+      goto completeCall;
+
+    CASE_CODE(LT):
+      if (IS_NUM(PEEK2()) && IS_NUM(PEEK()))
+      {
+        double b = AS_NUM(POP());
+        PEEK() = BOOL_VAL(AS_NUM(PEEK()) < b);
+        DISPATCH();
+      }
+      numArgs = 2;
+      symbol = wrenSymbolTableFind(&vm->methodNames, "<(_)", 4);
+      args = fiber->stackTop - 2;
+      classObj = wrenGetClassInline(vm, args[0]);
+      goto completeCall;
+
+    CASE_CODE(GT):
+      if (IS_NUM(PEEK2()) && IS_NUM(PEEK()))
+      {
+        double b = AS_NUM(POP());
+        PEEK() = BOOL_VAL(AS_NUM(PEEK()) > b);
+        DISPATCH();
+      }
+      numArgs = 2;
+      symbol = wrenSymbolTableFind(&vm->methodNames, ">(_)", 4);
+      args = fiber->stackTop - 2;
+      classObj = wrenGetClassInline(vm, args[0]);
+      goto completeCall;
+
+    CASE_CODE(LTE):
+      if (IS_NUM(PEEK2()) && IS_NUM(PEEK()))
+      {
+        double b = AS_NUM(POP());
+        PEEK() = BOOL_VAL(AS_NUM(PEEK()) <= b);
+        DISPATCH();
+      }
+      numArgs = 2;
+      symbol = wrenSymbolTableFind(&vm->methodNames, "<=(_)", 5);
+      args = fiber->stackTop - 2;
+      classObj = wrenGetClassInline(vm, args[0]);
+      goto completeCall;
+
+    CASE_CODE(GTE):
+      if (IS_NUM(PEEK2()) && IS_NUM(PEEK()))
+      {
+        double b = AS_NUM(POP());
+        PEEK() = BOOL_VAL(AS_NUM(PEEK()) >= b);
+        DISPATCH();
+      }
+      numArgs = 2;
+      symbol = wrenSymbolTableFind(&vm->methodNames, ">=(_)", 5);
+      args = fiber->stackTop - 2;
+      classObj = wrenGetClassInline(vm, args[0]);
+      goto completeCall;
+
     CASE_CODE(CALL_0):
     CASE_CODE(CALL_1):
     CASE_CODE(CALL_2):
@@ -1075,6 +1165,28 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
       goto completeCall;
 
     completeCall:
+      // Monomorphic IC: CALL_* is 1 opcode + 2-byte symbol, already consumed.
+      if (instruction >= CODE_CALL_0 && instruction <= CODE_CALL_16 &&
+          fn->ics != NULL)
+      {
+        InlineCache* ic = &fn->ics[(int)(ip - fn->code.data) - 3];
+        if (ic->klass == classObj)
+        {
+          method = &ic->method;
+          goto dispatchMethod;
+        }
+
+        if (symbol >= classObj->methods.count ||
+            (method = &classObj->methods.data[symbol])->type == METHOD_NONE)
+        {
+          methodNotFound(vm, classObj, symbol);
+          RUNTIME_ERROR();
+        }
+        ic->klass = classObj;
+        ic->method = *method;
+        goto dispatchMethod;
+      }
+
       // If the class's method table doesn't include the symbol, bail.
       if (symbol >= classObj->methods.count ||
           (method = &classObj->methods.data[symbol])->type == METHOD_NONE)
@@ -1082,6 +1194,8 @@ static WrenInterpretResult runInterpreter(WrenVM* vm, register ObjFiber* fiber)
         methodNotFound(vm, classObj, symbol);
         RUNTIME_ERROR();
       }
+
+    dispatchMethod:
 
       switch (method->type)
       {
@@ -1552,66 +1666,34 @@ void wrenReleaseHandle(WrenVM* vm, WrenHandle* handle)
   DEALLOCATE(vm, handle);
 }
 
-// Context for running wrenInterpret inside neco
-typedef struct {
-  WrenVM* vm;
-  const char* module;
-  const char* source;
-  WrenInterpretResult result;
-} NecoInterpretCtx;
+static WrenInterpretResult interpretInPlace(WrenVM* vm, const char* module,
+                                            const char* source)
+{
+  ObjClosure* closure = wrenCompileSource(vm, module, source, false, true);
+  if (closure == NULL) return WREN_RESULT_COMPILE_ERROR;
 
-static void necoInterpretWrapper(int argc, void* argv[]) {
-  (void)argc;
-  NecoInterpretCtx* ctx = (NecoInterpretCtx*)argv[0];
-  
-  ObjClosure* closure = wrenCompileSource(ctx->vm, ctx->module, ctx->source, false, true);
-  if (closure == NULL) {
-    ctx->result = WREN_RESULT_COMPILE_ERROR;
-    return;
-  }
-  
-  wrenPushRoot(ctx->vm, (Obj*)closure);
-  ObjFiber* fiber = wrenNewFiber(ctx->vm, closure);
-  wrenPopRoot(ctx->vm);
-  ctx->vm->apiStack = NULL;
-  
-  ctx->result = runInterpreter(ctx->vm, fiber);
-
-  // Close all live neco generators before the neco event loop exits,
-  // otherwise neco_start will hang waiting for suspended coroutines.
-  wrenIteratorReleaseAll(ctx->vm);
+  wrenPushRoot(vm, (Obj*)closure);
+  ObjFiber* fiber = wrenNewFiber(vm, closure);
+  wrenPopRoot(vm);
+  vm->apiStack = NULL;
+  return runInterpreter(vm, fiber);
 }
 
 WrenInterpretResult wrenInterpret(WrenVM* vm, const char* module,
                                   const char* source)
 {
-  // Increment nesting level
-  interpretNestingLevel++;
-  
-  WrenInterpretResult result;
-  
-  if (interpretNestingLevel > 1) {
-    // Nested call - run directly (we're already inside neco)
-    ObjClosure* closure = wrenCompileSource(vm, module, source, false, true);
-    if (closure == NULL) {
-      result = WREN_RESULT_COMPILE_ERROR;
-    } else {
-      wrenPushRoot(vm, (Obj*)closure);
-      ObjFiber* fiber = wrenNewFiber(vm, closure);
-      wrenPopRoot(vm);
-      vm->apiStack = NULL;
-      result = runInterpreter(vm, fiber);
-    }
-  } else {
-    // Outermost call - start neco to run the interpretation
-    NecoInterpretCtx ctx = { vm, module, source, WREN_RESULT_SUCCESS };
-    neco_start(necoInterpretWrapper, 1, &ctx);
-    result = ctx.result;
+  vm->interpretNestingLevel++;
+  WrenInterpretResult result = interpretInPlace(vm, module, source);
+
+  // Outermost return: drop any leftover Generator iterators. No Suspenders
+  // host loop unless a later I/O path opts in — Generator is a C state machine.
+  if (vm->interpretNestingLevel == 1)
+  {
+    wrenGeneratorDetachAll(vm);
+    wrenIteratorReleaseAll(vm);
   }
-  
-  // Decrement nesting level
-  interpretNestingLevel--;
-  
+
+  vm->interpretNestingLevel--;
   return result;
 }
 

@@ -177,6 +177,14 @@ static int dumpInstruction(WrenVM* vm, ObjFn* fn, int i, int* lastLine)
     case CODE_STORE_FIELD: BYTE_INSTRUCTION("STORE_FIELD");
 
     case CODE_POP: printf("POP\n"); break;
+    case CODE_ADD: printf("ADD\n"); break;
+    case CODE_SUB: printf("SUB\n"); break;
+    case CODE_MUL: printf("MUL\n"); break;
+    case CODE_DIV: printf("DIV\n"); break;
+    case CODE_LT:  printf("LT\n"); break;
+    case CODE_GT:  printf("GT\n"); break;
+    case CODE_LTE: printf("LTE\n"); break;
+    case CODE_GTE: printf("GTE\n"); break;
 
     case CODE_CALL_0:
     case CODE_CALL_1:

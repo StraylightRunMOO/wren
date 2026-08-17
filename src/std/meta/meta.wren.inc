@@ -32,4 +32,7 @@ static const char* metaModuleSource =
 "\n"
 "  foreign static compile_(source, isExpression, printErrors)\n"
 "  foreign static getModuleVariables_(module)\n"
-"}\n";
+"}\n"
+"\n"
+"// Official Wren name. Same class object as `meta`.\n"
+"var Meta = meta\n";

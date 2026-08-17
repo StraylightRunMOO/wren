@@ -258,6 +258,8 @@ ObjFn* wrenNewFunction(WrenVM* vm, ObjModule* module, int maxSlots)
   fn->numUpvalues = 0;
   fn->arity = 0;
   fn->debug = debug;
+  fn->ics = NULL;
+  fn->icsCount = 0;
   
   return fn;
 }
@@ -1100,13 +1102,22 @@ static void blackenFn(WrenVM* vm, ObjFn* fn)
   
   // The debug line number buffer.
   vm->bytesAllocated += sizeof(int) * fn->code.capacity;
+  vm->bytesAllocated += sizeof(InlineCache) * fn->icsCount;
   // TODO: What about the function name?
+
+  if (fn->ics != NULL)
+  {
+    for (int i = 0; i < fn->icsCount; i++)
+    {
+      wrenGrayObj(vm, (Obj*)fn->ics[i].klass);
+    }
+  }
 }
 
 static void blackenForeign(WrenVM* vm, ObjForeign* foreign)
 {
   // Generator objects store the iterable Value that must be kept alive
-  // while the neco coroutine holds raw C pointers into it.
+  // while the producer coroutine yields copies of its elements.
   if (vm->generatorClass != NULL &&
       foreign->obj.classObj == vm->generatorClass) {
     wrenGeneratorBlacken(vm, foreign);
@@ -1258,6 +1269,7 @@ void wrenFreeObj(WrenVM* vm, Obj* obj)
       wrenIntBufferClear(vm, &fn->debug->sourceLines);
       DEALLOCATE(vm, fn->debug->name);
       DEALLOCATE(vm, fn->debug);
+      DEALLOCATE(vm, fn->ics);
       break;
     }
 

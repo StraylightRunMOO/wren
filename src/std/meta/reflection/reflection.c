@@ -14,8 +14,18 @@ static void parseMethodSignature(const char* name, int nameLen,
     const char* paren   = strchr(name, '(');
     const char* bracket = strchr(name, '[');
     if (!paren && !bracket) {
+        // No parens: bare name is getter, bare "name=" is setter
         if (nameLen > 0 && name[nameLen - 1] == '=') { *isSetter = true; *arity = 1; }
         else { *isGetter = true; }
+        return;
+    }
+    // Property setter: "name=(_)" — '=' immediately before '('
+    if (paren && paren > name && *(paren - 1) == '=') {
+        int underscores = 0;
+        for (const char* p = paren + 1; *p && *p != ')'; p++)
+            if (*p == '_') underscores++;
+        *isSetter = true;
+        *arity = underscores;
         return;
     }
     const char* open = (bracket && (!paren || bracket < paren)) ? bracket : paren;
@@ -24,6 +34,7 @@ static void parseMethodSignature(const char* name, int nameLen,
     for (const char* p = open + 1; *p && *p != close_ch; p++)
         if (*p == '_') underscores++;
     const char* closePos = strchr(open, close_ch);
+    // Subscript setter: "[_]=" pattern
     bool hasSuffix = closePos && *(closePos + 1) == '=';
     if (*open == '[' && hasSuffix) { *isSetter = true; *arity = underscores + 1; }
     else { *arity = underscores; }

@@ -54,15 +54,23 @@ static void fileOpen(WrenVM* vm) {
   wrenSetSlotDouble(vm, 0, fd);
 }
 
-// File.read_(fd, n)
+// File.read_(fd, n) — byte-exact, may contain NULs.
 static void fileRead(WrenVM* vm) {
   int fd = (int)wrenGetSlotDouble(vm, 1);
   int n  = (int)wrenGetSlotDouble(vm, 2);
-  char* buf = malloc(n + 1);
-  ssize_t got = read(fd, buf, n);
+  if (n <= 0) {
+    wrenSetSlotBytes(vm, 0, "", 0);
+    return;
+  }
+  char* buf = malloc((size_t)n);
+  if (buf == NULL) {
+    wrenSetSlotString(vm, 0, "Out of memory");
+    wrenAbortFiber(vm, 0);
+    return;
+  }
+  ssize_t got = read(fd, buf, (size_t)n);
   if (got < 0) got = 0;
-  buf[got] = '\0';
-  wrenSetSlotString(vm, 0, buf);
+  wrenSetSlotBytes(vm, 0, buf, (size_t)got);
   free(buf);
 }
 
@@ -71,38 +79,66 @@ static void fileReadAll(WrenVM* vm) {
   int fd = (int)wrenGetSlotDouble(vm, 1);
   size_t cap = 4096, len = 0;
   char* buf = malloc(cap);
+  if (buf == NULL) {
+    wrenSetSlotString(vm, 0, "Out of memory");
+    wrenAbortFiber(vm, 0);
+    return;
+  }
   ssize_t n;
   while ((n = read(fd, buf + len, cap - len)) > 0) {
-    len += n;
-    if (len == cap) { cap *= 2; buf = realloc(buf, cap); }
+    len += (size_t)n;
+    if (len == cap) {
+      cap *= 2;
+      char* grown = realloc(buf, cap);
+      if (grown == NULL) {
+        free(buf);
+        wrenSetSlotString(vm, 0, "Out of memory");
+        wrenAbortFiber(vm, 0);
+        return;
+      }
+      buf = grown;
+    }
   }
-  buf[len] = '\0';
-  wrenSetSlotString(vm, 0, buf);
+  wrenSetSlotBytes(vm, 0, buf, len);
   free(buf);
 }
 
-// File.readLine_(fd)
+// File.readLine_(fd) — drops the newline; keeps other bytes including NUL.
 static void fileReadLine(WrenVM* vm) {
   int fd = (int)wrenGetSlotDouble(vm, 1);
   size_t cap = 256, len = 0;
   char* buf = malloc(cap);
+  if (buf == NULL) {
+    wrenSetSlotString(vm, 0, "Out of memory");
+    wrenAbortFiber(vm, 0);
+    return;
+  }
   char c;
   while (read(fd, &c, 1) == 1) {
-    if (len + 1 >= cap) { cap *= 2; buf = realloc(buf, cap); }
     if (c == '\n') break;
+    if (len + 1 >= cap) {
+      cap *= 2;
+      char* grown = realloc(buf, cap);
+      if (grown == NULL) {
+        free(buf);
+        wrenSetSlotString(vm, 0, "Out of memory");
+        wrenAbortFiber(vm, 0);
+        return;
+      }
+      buf = grown;
+    }
     buf[len++] = c;
   }
-  buf[len] = '\0';
-  wrenSetSlotString(vm, 0, buf);
+  wrenSetSlotBytes(vm, 0, buf, len);
   free(buf);
 }
 
-// File.write_(fd, s)
+// File.write_(fd, s) — writes the string's byte length, not strlen.
 static void fileWrite(WrenVM* vm) {
   int fd = (int)wrenGetSlotDouble(vm, 1);
-  const char* s = wrenGetSlotString(vm, 2);
-  size_t len = strlen(s);
-  ssize_t written = write(fd, s, len);
+  int length = 0;
+  const char* s = wrenGetSlotBytes(vm, 2, &length);
+  ssize_t written = write(fd, s, (size_t)length);
   wrenSetSlotDouble(vm, 0, (double)(written < 0 ? 0 : written));
 }
 
@@ -153,6 +189,10 @@ WrenForeignMethodFn wrenFsBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED vm,
   }
 
   if (strcmp(className, "File") == 0) {
+    if (strcmp(signature, "exists_(_)") == 0)   return fsExists;
+    if (strcmp(signature, "remove_(_)") == 0)   return fsRemove;
+    if (strcmp(signature, "rename_(_,_)") == 0) return fsRename;
+    if (strcmp(signature, "size_(_)") == 0)     return fsSize;
     if (strcmp(signature, "open_(_,_)") == 0)   return fileOpen;
     if (strcmp(signature, "read_(_,_)") == 0)   return fileRead;
     if (strcmp(signature, "readAll_(_)") == 0)  return fileReadAll;

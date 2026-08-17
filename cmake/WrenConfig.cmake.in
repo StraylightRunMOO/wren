@@ -1,5 +1,4 @@
 @PACKAGE_INIT@
 
-include("${CMAKE_CURRENT_LIST_DIR}/WrenTargets.cmake")
-
-check_required_components(Wren)
+message(DEPRECATION "find_package(Wren) is deprecated; use find_package(Pigeon)")
+include("${CMAKE_CURRENT_LIST_DIR}/../Pigeon/PigeonConfig.cmake")

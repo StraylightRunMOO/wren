@@ -25,15 +25,28 @@ config = args.suffix.lstrip('_d')
 is_debug = args.suffix.startswith('_d')
 
 WREN_DIR = dirname(dirname(realpath(__file__)))
-WREN_APP = join(WREN_DIR, 'bin', 'wren_test' + args.suffix)
+
+def _find_test_app(root, suffix):
+  names = ('pigeon_test', 'wren_test')
+  dirs = (join('build-rel', 'bin'), join('build', 'bin'), 'bin')
+  for directory in dirs:
+    for name in names:
+      candidate = join(root, directory, name + suffix)
+      if isfile(candidate):
+        return candidate
+      if platform.system() == "Windows" and isfile(candidate + ".exe"):
+        return candidate
+  return join(root, 'bin', 'pigeon_test' + suffix)
+
+WREN_APP = _find_test_app(WREN_DIR, args.suffix)
 
 WREN_APP_WITH_EXT = WREN_APP
 if platform.system() == "Windows":
   WREN_APP_WITH_EXT += ".exe"
 
 if not isfile(WREN_APP_WITH_EXT):
-  print("The binary file 'wren_test' was not found, expected it to be at " + WREN_APP)
-  print("In order to run the tests, you need to build Wren first!")
+  print("The binary file 'pigeon_test' was not found, expected it under bin/, build-rel/bin/, or build/bin/")
+  print("In order to run the tests, you need to build Pigeon first!")
   sys.exit(1)
 
 # print("Wren Test Directory - " + WREN_DIR)

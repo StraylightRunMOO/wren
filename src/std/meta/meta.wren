@@ -31,3 +31,6 @@ class meta {
   foreign static compile_(source, isExpression, printErrors)
   foreign static getModuleVariables_(module)
 }
+
+// Official Wren name. Same class object as `meta`.
+var Meta = meta

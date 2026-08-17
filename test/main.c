@@ -8,10 +8,8 @@
 
 static WrenVM* vm = NULL;
 
-//This is a simple test runner that serves one purpose:
-//To run the language level tests and benchmarks for Wren.
-//It is not a general purpose vm or REPL.
-//See wren-cli if you're looking for that.
+// Test runner for the Pigeon language suite and C API tests.
+// Not a general-purpose VM. Use the `pigeon` CLI for that.
 
 // Callback for default imports (e.g., `import "math"`)
 static const char* resolveDefaultExport(WrenVM* vm, const char* name)

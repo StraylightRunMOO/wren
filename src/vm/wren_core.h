@@ -31,4 +31,8 @@ WrenForeignClassMethods wrenCoreBindForeignClass(WrenVM* vm, const char* classNa
 // GC mark callback for Generator foreign objects — grays the iterable value.
 void wrenGeneratorBlacken(WrenVM* vm, ObjForeign* foreign);
 
+// Drop iterator pointers from every live Generator. Call before
+// wrenIteratorReleaseAll so leftover Generator objects do not UAF.
+void wrenGeneratorDetachAll(WrenVM* vm);
+
 #endif

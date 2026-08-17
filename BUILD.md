@@ -1,6 +1,6 @@
-# Building Wren with CMake
+# Building Pigeon with CMake
 
-Wren uses CMake as its build system for cross-platform compilation.
+Pigeon uses CMake as its build system for cross-platform compilation.
 
 ## Quick Start
 
@@ -11,17 +11,24 @@ cmake -B build
 # Build the project
 cmake --build build
 
-# Run tests
-./build/bin/wren_test
+# Run a file / start the REPL
+./build/bin/pigeon example/hello.wren
+
+# Language test harness
+./build/bin/pigeon_test
 ```
 
 ## Build Targets
 
 The CMake configuration generates the following targets:
 
-- **wren** - Static library (`lib/libwren.a`)
-- **wren_shared** - Shared/dynamic library (`lib/libwren.so`)
-- **wren_test** - Test executable (`bin/wren_test`)
+- **pigeon** — static library (`lib/libpigeon.a`); `wren` is an in-tree alias
+- **pigeon_shared** — shared library (`lib/libpigeon.so`)
+- **pigeon_cli** — CLI (`bin/pigeon`)
+- **pigeon_test** — test harness (`bin/pigeon_test`)
+
+`find_package(Pigeon)` exports `Pigeon::pigeon`. `find_package(Wren)` is a
+one-release deprecation wrapper.
 
 ## Build Options
 

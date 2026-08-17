@@ -15,6 +15,7 @@
 #include "strings/strings.h"
 #include "meta/meta.h"
 #include "meta/reflection/reflection.h"
+#include "encoding/json/json.h"
 
 // Module loader for stdlib - returns source for a given module name
 // Returns NULL if module not found

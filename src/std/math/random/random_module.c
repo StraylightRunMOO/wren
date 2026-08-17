@@ -143,10 +143,8 @@ WrenForeignMethodFn wrenRandomModuleBindForeignMethod(WrenVM* WREN_MAYBE_UNUSED 
   }
   
   // Static methods
-  if (strcmp(signature, "systemTime_()") == 0) {
-    if (strcmp(className, "RandomState") == 0 || strcmp(className, "random") == 0) {
-      return randomSystemTime;
-    }
+  if (strcmp(className, "Random") == 0) {
+    if (strcmp(signature, "systemSeed_()") == 0) return randomSystemTime;
   }
   
   return NULL;
