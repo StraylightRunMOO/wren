@@ -9,24 +9,31 @@ DEFINE_BUFFER(String, ObjString*);
 
 void wrenSymbolTableInit(SymbolTable* symbols)
 {
-  wrenStringBufferInit(symbols);
+  wrenStringBufferInit(&symbols->data);
+  sym_init(&symbols->index);
 }
 
 void wrenSymbolTableClear(WrenVM* vm, SymbolTable* symbols)
 {
-  wrenStringBufferClear(vm, symbols);
+  wrenStringBufferClear(vm, &symbols->data);
+  sym_free(&symbols->index);
 }
 
 int wrenSymbolTableAdd(WrenVM* vm, SymbolTable* symbols,
                        const char* name, size_t length)
 {
   ObjString* symbol = AS_STRING(wrenNewStringLength(vm, name, length));
-  
+
   wrenPushRoot(vm, &symbol->obj);
-  wrenStringBufferWrite(vm, symbols, symbol);
+  wrenStringBufferWrite(vm, &symbols->data, symbol);
   wrenPopRoot(vm);
-  
-  return symbols->count - 1;
+
+  int idx = symbols->data.count - 1;
+
+  // Add to the hash index. symbol->value is null-terminated.
+  sym_add(&symbols->index, symbol->value, idx, 0);
+
+  return idx;
 }
 
 int wrenSymbolTableEnsure(WrenVM* vm, SymbolTable* symbols,
@@ -43,25 +50,38 @@ int wrenSymbolTableEnsure(WrenVM* vm, SymbolTable* symbols,
 int wrenSymbolTableFind(const SymbolTable* symbols,
                         const char* name, size_t length)
 {
-  // See if the symbol is already defined.
-  // TODO: O(n). Do something better.
-  for (int i = 0; i < symbols->count; i++)
+  // The swizz hash map needs a null-terminated key. If the name is already
+  // null-terminated at [length] we can use it directly; otherwise copy to a
+  // stack buffer.
+  char buf[MAX_METHOD_SIGNATURE + 1];
+  const char* key;
+
+  if (name[length] == '\0')
   {
-    if (wrenStringEqualsCString(symbols->data[i], name, length)) return i;
+    key = name;
+  }
+  else
+  {
+    if (length >= sizeof(buf)) length = sizeof(buf) - 1;
+    memcpy(buf, name, length);
+    buf[length] = '\0';
+    key = buf;
   }
 
-  return -1;
+  sym_entry* entry = sym_find((sym_table*)&symbols->index, key);
+  return entry ? entry->value : -1;
 }
 
 void wrenBlackenSymbolTable(WrenVM* vm, SymbolTable* symbolTable)
 {
-  for (int i = 0; i < symbolTable->count; i++)
+  for (int i = 0; i < symbolTable->data.count; i++)
   {
-    wrenGrayObj(vm, &symbolTable->data[i]->obj);
+    wrenGrayObj(vm, &symbolTable->data.data[i]->obj);
   }
-  
+
   // Keep track of how much memory is still in use.
-  vm->bytesAllocated += symbolTable->capacity * sizeof(*symbolTable->data);
+  vm->bytesAllocated += symbolTable->data.capacity *
+                        sizeof(*symbolTable->data.data);
 }
 
 int wrenUtf8EncodeNumBytes(int value)

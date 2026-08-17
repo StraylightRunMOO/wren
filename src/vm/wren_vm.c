@@ -90,12 +90,17 @@ WrenVM* wrenNewVM(WrenConfiguration* config)
 
   vm->modules = wrenNewMap(vm);
   wrenInitializeCore(vm);
+
+  vm->allocateSymbol = wrenSymbolTableEnsure(vm, &vm->methodNames,
+                                             "<allocate>", 10);
+  vm->finalizeSymbol = wrenSymbolTableEnsure(vm, &vm->methodNames,
+                                             "<finalize>", 10);
   return vm;
 }
 
 void wrenFreeVM(WrenVM* vm)
 {
-  ASSERT(vm->methodNames.count > 0, "VM appears to have already been freed.");
+  ASSERT(vm->methodNames.data.count > 0, "VM appears to have already been freed.");
   
   // Free all of the GC objects.
   Obj* obj = vm->first;
@@ -448,7 +453,7 @@ static void runtimeError(WrenVM* vm)
 static void methodNotFound(WrenVM* vm, ObjClass* classObj, int symbol)
 {
   vm->fiber->error = wrenStringFormat(vm, "@ does not implement '$'.",
-      OBJ_VAL(classObj->name), vm->methodNames.data[symbol]->value);
+      OBJ_VAL(classObj->name), vm->methodNames.data.data[symbol]->value);
 }
 
 // Looks up the previously loaded module with [name].
@@ -485,8 +490,8 @@ static ObjClosure* compileInModule(WrenVM* vm, Value name, const char* source,
     for (int i = 0; i < coreModule->variables.count; i++)
     {
       wrenDefineVariable(vm, module,
-                         coreModule->variableNames.data[i]->value,
-                         coreModule->variableNames.data[i]->length,
+                         coreModule->variableNames.data.data[i]->value,
+                         coreModule->variableNames.data.data[i]->length,
                          coreModule->variables.data[i], NULL);
     }
   }
@@ -610,18 +615,14 @@ static void bindForeignClass(WrenVM* vm, ObjClass* classObj, ObjModule* module)
   Method method;
   method.type = METHOD_FOREIGN;
 
-  // Add the symbol even if there is no allocator so we can ensure that the
-  // symbol itself is always in the symbol table.
-  int symbol = wrenSymbolTableEnsure(vm, &vm->methodNames, "<allocate>", 10);
+  int symbol = vm->allocateSymbol;
   if (methods.allocate != NULL)
   {
     method.as.foreign = methods.allocate;
     wrenBindMethod(vm, classObj, symbol, method);
   }
-  
-  // Add the symbol even if there is no finalizer so we can ensure that the
-  // symbol itself is always in the symbol table.
-  symbol = wrenSymbolTableEnsure(vm, &vm->methodNames, "<finalize>", 10);
+
+  symbol = vm->finalizeSymbol;
   if (methods.finalize != NULL)
   {
     method.as.foreign = (WrenForeignMethodFn)methods.finalize;
@@ -682,8 +683,7 @@ static void createForeign(WrenVM* vm, ObjFiber* WREN_MAYBE_UNUSED fiber, Value* 
   ObjClass* classObj = AS_CLASS(stack[0]);
   ASSERT(classObj->numFields == -1, "Class must be a foreign class.");
 
-  // TODO: Don't look up every time.
-  int symbol = wrenSymbolTableFind(&vm->methodNames, "<allocate>", 10);
+  int symbol = vm->allocateSymbol;
   ASSERT(symbol != -1, "Should have defined <allocate> symbol.");
 
   ASSERT(classObj->methods.count > symbol, "Class should have allocator.");
@@ -701,12 +701,8 @@ static void createForeign(WrenVM* vm, ObjFiber* WREN_MAYBE_UNUSED fiber, Value* 
 
 void wrenFinalizeForeign(WrenVM* vm, ObjForeign* foreign)
 {
-  // TODO: Don't look up every time.
-  int symbol = wrenSymbolTableFind(&vm->methodNames, "<finalize>", 10);
+  int symbol = vm->finalizeSymbol;
   ASSERT(symbol != -1, "Should have defined <finalize> symbol.");
-
-  // If there are no finalizers, don't finalize it.
-  if (symbol == -1) return;
 
   // If the class doesn't have a finalizer, bail out.
   ObjClass* classObj = foreign->obj.classObj;

@@ -432,9 +432,9 @@ static void printError(Parser* parser, int line, const char* label,
 
   // Format the label and message.
   char message[ERROR_MESSAGE_SIZE];
-  int length = sprintf(message, "%s: ", label);
-  length += vsprintf(message + length, format, args);
-  ASSERT(length < ERROR_MESSAGE_SIZE, "Error should not exceed buffer.");
+  int length = snprintf(message, sizeof(message), "%s: ", label);
+  length += vsnprintf(message + length, sizeof(message) - length, format, args);
+  ASSERT(length < (int)sizeof(message), "Error should not exceed buffer.");
 
   ObjString* module = parser->module->name;
   const char* module_name = module ? module->value : "<unknown>";
@@ -3792,7 +3792,7 @@ static void classDefinition(Compiler* compiler, bool isForeign)
   if (!isForeign)
   {
     compiler->fn->code.data[numFieldsInstruction] =
-        (uint8_t)classInfo.fields.count;
+        (uint8_t)classInfo.fields.data.count;
   }
   
   // Clear symbol tables for tracking field and method names.
@@ -4082,8 +4082,8 @@ ObjFn* wrenCompile(WrenVM* vm, ObjModule* module, const char* source,
     {
       // Synthesize a token for the original use site.
       parser.previous.type = TOKEN_NAME;
-      parser.previous.start = parser.module->variableNames.data[i]->value;
-      parser.previous.length = parser.module->variableNames.data[i]->length;
+      parser.previous.start = parser.module->variableNames.data.data[i]->value;
+      parser.previous.length = parser.module->variableNames.data.data[i]->length;
       parser.previous.line = (int)AS_NUM(parser.module->variables.data[i]);
       error(&compiler, "Variable is used but not defined.");
     }

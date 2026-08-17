@@ -53,11 +53,11 @@ static const char* methodTypeString(MethodType t) {
 // Populate a methods ObjMap with entries from `cls`, marking each as isStatic.
 static void populateMethods(WrenVM* vm, ObjMap* methods, ObjClass* cls, bool isStatic) {
     SymbolTable* symbols = &vm->methodNames;
-    for (int i = 0; i < cls->methods.count && i < symbols->count; i++) {
+    for (int i = 0; i < cls->methods.count && i < symbols->data.count; i++) {
         Method* method = &cls->methods.data[i];
         if (method->type == METHOD_NONE) continue;
 
-        ObjString* methodName = symbols->data[i];
+        ObjString* methodName = symbols->data.data[i];
         int arity; bool isGetter, isSetter;
         parseMethodSignature(methodName->value, methodName->length,
                              &arity, &isGetter, &isSetter);
@@ -94,8 +94,8 @@ static void reflectionGetClass(WrenVM* vm) {
             Value moduleVal = vm->modules->entries[i].value;
             if (IS_UNDEFINED(moduleVal) || !wrenIsObjType(moduleVal, OBJ_MODULE)) continue;
             ObjModule* module = AS_MODULE(moduleVal);
-            for (int j = 0; j < module->variableNames.count; j++) {
-                if (strcmp(module->variableNames.data[j]->value, name) == 0) {
+            for (int j = 0; j < module->variableNames.data.count; j++) {
+                if (strcmp(module->variableNames.data.data[j]->value, name) == 0) {
                     Value v = module->variables.data[j];
                     if (IS_CLASS(v)) { foundClass = AS_CLASS(v); break; }
                 }

@@ -23,7 +23,7 @@ static const char* mathModuleSource =
 "  \n"
 "  // Exponential and logarithmic\n"
 "  static exp(x) { x.exp }\n"
-"  static exp2(x) { x.pow(2) }\n"
+"  static exp2(x) { 2.pow(x) }\n"
 "  static log(x) { x.log }\n"
 "  static log10(x) { x.log / this.Ln10 }\n"
 "  static log2(x) { x.log / this.Ln2 }\n"

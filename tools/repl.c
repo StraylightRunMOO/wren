@@ -101,7 +101,7 @@ static void printHelp(void)
   printf("  pigeon> var x = 10\n");
   printf("  pigeon> System.print(\"Hello, World!\")\n");
   printf("  pigeon> [1, 2, 3].map {|n| n * 2 }\n");
-  printf("  wren> \"\"\"                    // Start multi-line\n");
+  printf("  pigeon> \"\"\"                  // Start multi-line\n");
   printf("  ....> class Foo {\n");
   printf("  ....>   bar { 42 }\n");
   printf("  ....> }\n");
@@ -227,9 +227,10 @@ static WrenLoadModuleResult replLoadModule(WrenVM* vm, const char* module)
   if (f) {
     fseek(f, 0, SEEK_END);
     long sz = ftell(f);
+    if (sz < 0) { fclose(f); return result; }
     fseek(f, 0, SEEK_SET);
-    char* buf = malloc(sz + 1);
-    fread(buf, 1, sz, f);
+    char* buf = malloc((size_t)sz + 1);
+    if (fread(buf, 1, (size_t)sz, f) != (size_t)sz) { free(buf); fclose(f); return result; }
     buf[sz] = '\0';
     fclose(f);
     result.source = buf;
@@ -464,6 +465,13 @@ static int runFile(WrenVM* vm, const char* path)
 
   fseek(f, 0, SEEK_END);
   long size = ftell(f);
+  if (size < 0)
+  {
+    fclose(f);
+    fprintf(stderr, "%sError: Could not read file %s%s\n",
+            COLOR_ERROR, path, COLOR_RESET);
+    return 66; /* EX_NOINPUT */
+  }
   fseek(f, 0, SEEK_SET);
 
   char* code = malloc((size_t)size + 1);
@@ -553,8 +561,13 @@ int main(int argc, char* argv[])
     // Build up multi-line input
     if (in_multiline)
     {
-      strcat(input_buffer, "\n");
-      strcat(input_buffer, line);
+      size_t cur = strlen(input_buffer);
+      size_t add = strlen(line) + 1; // +1 for the newline
+      if (cur + add < sizeof(input_buffer))
+      {
+        strcat(input_buffer, "\n");
+        strcat(input_buffer, line);
+      }
     }
     else
     {

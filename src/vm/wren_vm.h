@@ -120,6 +120,10 @@ struct WrenVM
   // There is a single global symbol table for all method names on all classes.
   // Method calls are dispatched directly by index in this table.
   SymbolTable methodNames;
+
+  // Cached indices for <allocate> and <finalize> pseudo-methods.
+  int allocateSymbol;
+  int finalizeSymbol;
 };
 
 // Default host allocator: Memento thread heap with a size-prefix header.

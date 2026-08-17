@@ -21,7 +21,7 @@ class math {
   
   // Exponential and logarithmic
   static exp(x) { x.exp }
-  static exp2(x) { x.pow(2) }
+  static exp2(x) { 2.pow(x) }
   static log(x) { x.log }
   static log10(x) { x.log / this.Ln10 }
   static log2(x) { x.log / this.Ln2 }

@@ -74,7 +74,16 @@ class strings {
   }
   
   // LastIndex returns the index of the last instance of substr in s, or -1 if not present
-  static lastIndex(s, substr) { s.indexOf(substr) } // TODO: implement reverse search
+  static lastIndex(s, substr) {
+    if (substr == "") return s.count
+    var last = -1
+    var idx = 0
+    while ((idx = s.indexOf(substr, idx)) != -1) {
+      last = idx
+      idx = idx + 1
+    }
+    return last
+  }
   
   // Map returns a copy of the string s with all its characters modified according to the mapping function
   static map(s, mapper) {

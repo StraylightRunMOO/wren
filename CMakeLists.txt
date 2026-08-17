@@ -63,6 +63,33 @@ else()
 endif()
 set(SUSPENDERS_INCLUDE_DIR "${suspenders_SOURCE_DIR}/include")
 
+# ---------------------------------------------------------------------------
+# Swizz.h (header-only hash table). Prefer sibling checkout.
+# ---------------------------------------------------------------------------
+set(PIGEON_SWIZZ_SOURCE "" CACHE PATH "Optional local swizz.h tree")
+
+if(NOT PIGEON_SWIZZ_SOURCE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../swizz.h/swizz.h")
+    set(PIGEON_SWIZZ_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/../swizz.h")
+endif()
+
+if(PIGEON_SWIZZ_SOURCE)
+    set(swizz_SOURCE_DIR "${PIGEON_SWIZZ_SOURCE}")
+    message(STATUS "Swizz: local ${swizz_SOURCE_DIR}")
+else()
+    FetchContent_Declare(
+        swizz
+        GIT_REPOSITORY https://github.com/StraylightRunMOO/swizz.h.git
+        GIT_TAG        main
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_GetProperties(swizz)
+    if(NOT swizz_POPULATED)
+        FetchContent_Populate(swizz)
+    endif()
+    message(STATUS "Swizz: FetchContent -> ${swizz_SOURCE_DIR}")
+endif()
+set(SWIZZ_INCLUDE_DIR "${swizz_SOURCE_DIR}")
+
 set(PIGEON_RUNTIME_LIBS Threads::Threads)
 if(UNIX AND NOT APPLE)
     find_package(PkgConfig QUIET)
@@ -206,6 +233,7 @@ target_include_directories(pigeon
         ${CMAKE_CURRENT_SOURCE_DIR}/src/std
         ${MEMENTO_INCLUDE_DIR}
         ${SUSPENDERS_INCLUDE_DIR}
+        ${SWIZZ_INCLUDE_DIR}
 )
 target_compile_definitions(pigeon PRIVATE PIGEON_NO_WREN_DEPRECATION)
 if(LIBURING_FOUND)
@@ -243,6 +271,7 @@ target_include_directories(pigeon_shared
         ${CMAKE_CURRENT_SOURCE_DIR}/src/std
         ${MEMENTO_INCLUDE_DIR}
         ${SUSPENDERS_INCLUDE_DIR}
+        ${SWIZZ_INCLUDE_DIR}
 )
 target_compile_definitions(pigeon_shared PRIVATE PIGEON_NO_WREN_DEPRECATION)
 if(LIBURING_FOUND)

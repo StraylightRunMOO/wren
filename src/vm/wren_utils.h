@@ -67,8 +67,37 @@ DECLARE_BUFFER(Byte, uint8_t);
 DECLARE_BUFFER(Int, int);
 DECLARE_BUFFER(String, ObjString*);
 
-// TODO: Change this to use a map.
-typedef StringBuffer SymbolTable;
+// ---------------------------------------------------------------------------
+// Swizz.h hash table instantiation for symbol lookup acceleration.
+// Maps null-terminated C strings → int (symbol index).
+// ---------------------------------------------------------------------------
+#include <string.h>
+
+static inline char* swizz_sym_dup(const char* k)
+{
+  if (!k) return NULL;
+  size_t len = strlen(k);
+  char* copy = (char*)malloc(len + 1);
+  if (copy) memcpy(copy, k, len + 1);
+  return copy;
+}
+
+#define SWIZZ_NAME          sym
+#define SWIZZ_KEY_TYPE      const char*
+#define SWIZZ_VALUE_TYPE    int
+#define SWIZZ_HASH(k)       hash_string(k)
+#define SWIZZ_EQ(a, b)      (strcmp((a), (b)) == 0)
+#define SWIZZ_DUP_KEY(k)    swizz_sym_dup(k)
+#define SWIZZ_FREE_KEY(k)   free((void*)(k))
+#include "swizz.h"
+
+// The symbol table is an array (for index-based dispatch) plus a hash map
+// (for fast name → index lookup).
+typedef struct
+{
+  StringBuffer data;
+  sym_table    index;
+} SymbolTable;
 
 // Initializes the symbol table.
 void wrenSymbolTableInit(SymbolTable* symbols);

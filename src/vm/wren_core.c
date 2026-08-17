@@ -1402,10 +1402,10 @@ static const char* inspectMethodType(MethodType t)
 static void inspectFillMethods(WrenVM* vm, ObjMap* methods, ObjClass* cls, bool isStatic)
 {
   SymbolTable* symbols = &vm->methodNames;
-  for (int i = 0; i < cls->methods.count && i < symbols->count; i++) {
+  for (int i = 0; i < cls->methods.count && i < symbols->data.count; i++) {
     Method* m = &cls->methods.data[i];
     if (m->type == METHOD_NONE) continue;
-    ObjString* sigStr = symbols->data[i];
+    ObjString* sigStr = symbols->data.data[i];
     int arity; bool isGetter, isSetter;
     inspectParseSignature(sigStr->value, sigStr->length, &arity, &isGetter, &isSetter);
 
